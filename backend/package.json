@@ -3,9 +3,15 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun run --watch index.ts",
+    "start": "bun run index.ts",
+    "typecheck": "bunx tsc --noEmit"
+  },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/node": "^25.5.2"
+    "@types/node": "^25.5.2",
+    "@types/pg": "^8.15.6"
   },
   "peerDependencies": {
     "typescript": "^6.0.2"

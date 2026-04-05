@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sidequest-postgres
+    environment:
+      POSTGRES_DB: sidequest
+      POSTGRES_USER: sidequest
+      POSTGRES_PASSWORD: sidequest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sidequest -d sidequest"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: oven/bun:1
+    container_name: sidequest-backend
+    working_dir: /app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "3010"
+      DATABASE_URL: postgresql://sidequest:sidequest@postgres:5432/sidequest
+    command: sh -c "bun install && bun run start"
+    volumes:
+      - ./backend:/app
+    ports:
+      - "3010:3010"
+
+volumes:
+  postgres_data:
