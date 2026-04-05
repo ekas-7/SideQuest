@@ -97,17 +97,15 @@ export const createWeeklyQuestsForUser = async (
   questIds: number[],
   executor: QueryExecutor = db,
 ): Promise<void> => {
-  const inserts = questIds.map((questId, index) =>
-    executor.query(
+  for (const [index, questId] of questIds.entries()) {
+    await executor.query(
       `
         INSERT INTO weekly_side_quests (user_id, week_start, slot, quest_id)
         VALUES ($1, $2, $3, $4)
       `,
       [userId, weekStart, index + 1, questId],
-    ),
-  );
-
-  await Promise.all(inserts);
+    );
+  }
 };
 
 export const deleteWeeklyQuestsByUserAndWeek = async (

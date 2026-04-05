@@ -16,6 +16,21 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Local API integration (SideQuest MVP)
+
+Create an environment file before running the app:
+
+1. Copy `.env.example` to `.env.local`
+2. Keep `NEXT_PUBLIC_API_BASE_URL` pointed to your backend (default: `http://localhost:3010`)
+
+After signing in, open `/white` to use the MVP dashboard:
+
+- Create backend user by username
+- Fetch weekly quests (auto-assign on first load)
+- Reroll once per week
+- Submit proof for quests
+- Load verification assignments and cast votes
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
