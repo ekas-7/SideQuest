@@ -11,6 +11,8 @@
   --accent: 161 84% 62%;
   --border: 227 22% 24%;
   --input: 227 22% 24%;
+  /* Card hero / panel (cinematic quest cards) */
+  --surface: 230 42% 7%;
 }
 
 @theme inline {
@@ -24,7 +26,14 @@
   --color-accent: hsl(var(--accent));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
+  --color-surface: hsl(var(--surface));
   --font-sans: var(--font-body);
+}
+
+.cinematic-shadow {
+  box-shadow:
+    0 25px 50px -12px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.05);
 }
 
 body {
@@ -93,4 +102,25 @@ body {
 
 .animate-fade-rise-delay-2 {
   animation: fade-rise 0.8s ease-out 0.4s both;
+}
+
+.sq-card {
+  @apply rounded-2xl border border-border/70 bg-background/50 shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-out;
+}
+
+.sq-card-interactive:hover {
+  @apply -translate-y-0.5 border-border/90 shadow-md;
+}
+
+/* Nested media / proof blocks inside cards */
+.sq-inset {
+  @apply rounded-xl border border-border/60 bg-background/30 p-4;
+}
+
+.sq-media-frame {
+  @apply overflow-hidden rounded-xl border border-border/60 bg-secondary/30;
+}
+
+.sq-badge {
+  @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium;
 }

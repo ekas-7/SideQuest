@@ -1,7 +1,6 @@
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import RedirectOnSignIn from "@/components/auth/RedirectOnSignIn";
-import { SignUpButton } from "@clerk/nextjs";
-
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-background text-foreground">
@@ -32,40 +31,34 @@ export default function Home() {
         </div>
 
         <div className="hidden items-center gap-7 md:flex">
-          <a className="text-sm text-foreground transition-colors" href="#">
+          <Link className="text-sm text-foreground transition-colors" href="/">
             Home
-          </a>
-          <a
+          </Link>
+          <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            href="#"
+            href="/app/quests"
           >
             Quests
-          </a>
-          <a
+          </Link>
+          <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            href="#"
+            href="/app"
           >
-            Streaks
-          </a>
-          <a
+            Dashboard
+          </Link>
+          <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            href="#"
+            href="/app/verify"
           >
-            Proof Feed
-          </a>
-          <a
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            href="#"
-          >
-            Community
-          </a>
+            Verify
+          </Link>
         </div>
 
-        <SignUpButton mode="redirect">
+        <Link href="/app/quests">
           <Button className="h-auto rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground hover:scale-[1.03] sm:px-6">
             Start Quest
           </Button>
-        </SignUpButton>
+        </Link>
       </nav>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-90px)] w-[min(94%,76rem)] flex-col items-center justify-center px-4 pb-16 pt-20 text-center sm:px-6 sm:pt-24">

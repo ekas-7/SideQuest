@@ -1,6 +1,11 @@
 import type { QueryResultRow } from "pg";
 
-import type { VerificationJob, VerificationJobStatus, VerificationVote } from "../models/verification.model.ts";
+import type {
+  VerificationAssignmentDetail,
+  VerificationJob,
+  VerificationJobStatus,
+  VerificationVote,
+} from "../models/verification.model.ts";
 import { type QueryExecutor, db } from "../config/database.ts";
 
 interface VerificationJobRow extends QueryResultRow {
@@ -206,19 +211,64 @@ export const markTrustDeltaAppliedForAssignments = async (
   );
 };
 
+interface VerificationAssignmentDetailRow extends VerificationAssignmentRow {
+  job_status: VerificationJobStatus;
+  required_votes: number;
+  quest_title: string;
+  proof_description: string | null;
+  proof_url: string | null;
+  submitter_username: string;
+  submitted_at: string | null;
+}
+
+const mapAssignmentDetail = (row: VerificationAssignmentDetailRow): VerificationAssignmentDetail => ({
+  id: row.id,
+  jobId: row.job_id,
+  voterUserId: row.voter_user_id,
+  vote: row.vote,
+  respondedAt: row.responded_at,
+  trustDeltaApplied: row.trust_delta_applied,
+  createdAt: row.created_at,
+  jobStatus: row.job_status,
+  requiredVotes: row.required_votes,
+  questTitle: row.quest_title,
+  proofDescription: row.proof_description,
+  proofUrl: row.proof_url,
+  submitterUsername: row.submitter_username,
+  submittedAt: row.submitted_at,
+});
+
 export const listAssignmentsForVoter = async (
   voterUserId: string,
   executor: QueryExecutor = db,
-): Promise<VerificationAssignment[]> => {
-  const { rows } = await executor.query<VerificationAssignmentRow>(
+): Promise<VerificationAssignmentDetail[]> => {
+  const { rows } = await executor.query<VerificationAssignmentDetailRow>(
     `
-      SELECT id, job_id, voter_user_id, vote, responded_at, trust_delta_applied, created_at
-      FROM verification_assignments
-      WHERE voter_user_id = $1
-      ORDER BY created_at DESC
+      SELECT
+        va.id,
+        va.job_id,
+        va.voter_user_id,
+        va.vote,
+        va.responded_at,
+        va.trust_delta_applied,
+        va.created_at,
+        vj.status AS job_status,
+        vj.required_votes,
+        qc.title AS quest_title,
+        wsq.proof_description,
+        wsq.proof_url,
+        u.username AS submitter_username,
+        wsq.submitted_at
+      FROM verification_assignments va
+      INNER JOIN verification_jobs vj ON vj.id = va.job_id
+      INNER JOIN weekly_side_quests wsq ON wsq.id = vj.weekly_side_quest_id
+      INNER JOIN quest_catalog qc ON qc.id = wsq.quest_id
+      INNER JOIN users u ON u.id = wsq.user_id
+      WHERE va.voter_user_id = $1
+      ORDER BY va.created_at DESC
     `,
     [voterUserId],
   );
 
-  return rows.map(mapAssignment);
+  return rows.map(mapAssignmentDetail);
 };

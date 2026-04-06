@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "seed:verify": "bun run scripts/seed-dummy-verification.ts",
     "dev": "bun run --watch index.ts",
     "start": "bun run index.ts",
     "typecheck": "bunx tsc --noEmit",

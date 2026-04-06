@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 export default function AuthHeader() {
   const pathname = usePathname();
 
-  if (pathname === "/") {
+  if (pathname === "/" || pathname.startsWith("/app")) {
     return null;
   }
 

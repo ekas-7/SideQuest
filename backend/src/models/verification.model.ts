@@ -15,3 +15,20 @@ export interface VerificationVote {
   vote: boolean;
   respondedAt: string;
 }
+
+export interface VerificationAssignmentDetail {
+  id: number;
+  jobId: number;
+  voterUserId: string;
+  vote: boolean | null;
+  respondedAt: string | null;
+  trustDeltaApplied: boolean;
+  createdAt: string;
+  jobStatus: VerificationJobStatus;
+  requiredVotes: number;
+  questTitle: string;
+  proofDescription: string | null;
+  proofUrl: string | null;
+  submitterUsername: string;
+  submittedAt: string | null;
+}

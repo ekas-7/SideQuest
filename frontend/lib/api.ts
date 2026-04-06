@@ -174,6 +174,13 @@ export type VerificationAssignment = {
   respondedAt: string | null;
   trustDeltaApplied: boolean;
   createdAt: string;
+  jobStatus: "pending" | "approved" | "rejected";
+  requiredVotes: number;
+  questTitle: string;
+  proofDescription: string | null;
+  proofUrl: string | null;
+  submitterUsername: string;
+  submittedAt: string | null;
 };
 
 export type VotePendingResult = {

@@ -10,7 +10,7 @@ export default function RedirectOnSignIn() {
 
   useEffect(() => {
     if (isSignedIn) {
-      router.push("/white");
+      router.push("/app");
     }
   }, [isSignedIn, router]);
 
