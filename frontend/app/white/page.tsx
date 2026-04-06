@@ -14,6 +14,7 @@ import {
   getWeeklyQuests,
   rerollWeeklyQuests,
   submitWeeklyQuestProof,
+  uploadProofPhoto,
   type BackendUser,
   type CastVoteResponse,
   type SubmitProofResponse,
@@ -24,8 +25,38 @@ import {
 
 type ProofDraft = {
   description: string;
-  proofUrl: string;
+  file: File | null;
 };
+
+function ProofPhotoPreview({ file }: { file: File | null }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setObjectUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
+
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [file]);
+
+  if (!objectUrl) {
+    return null;
+  }
+
+  return (
+    <img
+      src={objectUrl}
+      alt="Selected proof"
+      className="max-h-40 w-auto rounded-lg border border-border object-contain"
+    />
+  );
+}
 
 const getTodayDate = () => new Date().toISOString().slice(0, 10);
 
@@ -205,17 +236,22 @@ export default function WhitePage() {
     }
   };
 
-  const handleProofFieldChange = (
-    weeklyQuestId: number,
-    field: keyof ProofDraft,
-    value: string
-  ) => {
+  const handleProofDescriptionChange = (weeklyQuestId: number, value: string) => {
+    setProofDrafts((prev) => ({
+      ...prev,
+      [weeklyQuestId]: {
+        description: value,
+        file: prev[weeklyQuestId]?.file ?? null,
+      },
+    }));
+  };
+
+  const handleProofFileChange = (weeklyQuestId: number, file: File | null) => {
     setProofDrafts((prev) => ({
       ...prev,
       [weeklyQuestId]: {
         description: prev[weeklyQuestId]?.description ?? "",
-        proofUrl: prev[weeklyQuestId]?.proofUrl ?? "",
-        [field]: value,
+        file,
       },
     }));
   };
@@ -225,9 +261,9 @@ export default function WhitePage() {
       return;
     }
 
-    const draft = proofDrafts[weeklyQuest.id] ?? { description: "", proofUrl: "" };
+    const draft = proofDrafts[weeklyQuest.id] ?? { description: "", file: null };
     const description = draft.description.trim();
-    const proofUrl = draft.proofUrl.trim();
+    const proofFile = draft.file;
 
     if (!description) {
       setProofStatusByQuestId((prev) => ({
@@ -237,31 +273,28 @@ export default function WhitePage() {
       return;
     }
 
-    if (!proofUrl) {
+    if (!proofFile) {
       setProofStatusByQuestId((prev) => ({
         ...prev,
-        [weeklyQuest.id]: "Please add a proof URL.",
-      }));
-      return;
-    }
-
-    try {
-      const parsedUrl = new URL(proofUrl);
-      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-        throw new Error("invalid protocol");
-      }
-    } catch {
-      setProofStatusByQuestId((prev) => ({
-        ...prev,
-        [weeklyQuest.id]: "Please provide a valid http(s) URL.",
+        [weeklyQuest.id]: "Please choose a proof photo.",
       }));
       return;
     }
 
     setProofPendingByQuestId((prev) => ({ ...prev, [weeklyQuest.id]: true }));
-    setProofStatusByQuestId((prev) => ({ ...prev, [weeklyQuest.id]: "Submitting..." }));
+    setProofStatusByQuestId((prev) => ({
+      ...prev,
+      [weeklyQuest.id]: "Uploading photo...",
+    }));
 
     try {
+      const { url: proofUrl } = await uploadProofPhoto(proofFile);
+
+      setProofStatusByQuestId((prev) => ({
+        ...prev,
+        [weeklyQuest.id]: "Submitting proof...",
+      }));
+
       const response = await submitWeeklyQuestProof(weeklyQuest.id, {
         userId: backendUser.id,
         description,
@@ -272,6 +305,12 @@ export default function WhitePage() {
         ...prev,
         [weeklyQuest.id]: getProofResultText(response),
       }));
+
+      setProofDrafts((prev) => {
+        const next = { ...prev };
+        delete next[weeklyQuest.id];
+        return next;
+      });
 
       await loadWeeklyQuests(backendUser.id);
     } catch (error) {
@@ -434,7 +473,7 @@ export default function WhitePage() {
                 {weeklyData?.quests.map((weeklyQuest) => {
                   const draft = proofDrafts[weeklyQuest.id] ?? {
                     description: "",
-                    proofUrl: "",
+                    file: null,
                   };
                   const isProofPending = proofPendingByQuestId[weeklyQuest.id] ?? false;
                   const canSubmitProof = ["assigned", "rejected"].includes(
@@ -467,26 +506,51 @@ export default function WhitePage() {
                           placeholder="Proof description"
                           value={draft.description}
                           onChange={(event) =>
-                            handleProofFieldChange(
+                            handleProofDescriptionChange(
                               weeklyQuest.id,
-                              "description",
                               event.target.value
                             )
                           }
                           disabled={!canSubmitProof || isProofPending}
                         />
-                        <Input
-                          placeholder="https://example.com/proof"
-                          value={draft.proofUrl}
-                          onChange={(event) =>
-                            handleProofFieldChange(
-                              weeklyQuest.id,
-                              "proofUrl",
-                              event.target.value
-                            )
-                          }
-                          disabled={!canSubmitProof || isProofPending}
-                        />
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                          <label className="inline-flex cursor-pointer">
+                            <span className="rounded-full border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground transition hover:bg-secondary/80">
+                              Choose photo
+                            </span>
+                            <input
+                              key={
+                                draft.file
+                                  ? `${draft.file.name}-${draft.file.size}`
+                                  : "no-file"
+                              }
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="sr-only"
+                              disabled={!canSubmitProof || isProofPending}
+                              onChange={(event) => {
+                                const next = event.target.files?.[0] ?? null;
+                                handleProofFileChange(weeklyQuest.id, next);
+                              }}
+                            />
+                          </label>
+                          {draft.file && (
+                            <>
+                              <span className="text-sm text-muted-foreground">
+                                {draft.file.name}
+                              </span>
+                              <Button
+                                type="button"
+                                className="w-fit rounded-full border border-border bg-secondary"
+                                disabled={!canSubmitProof || isProofPending}
+                                onClick={() => handleProofFileChange(weeklyQuest.id, null)}
+                              >
+                                Clear photo
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        <ProofPhotoPreview file={draft.file} />
                         <Button
                           className="w-fit rounded-full bg-primary text-primary-foreground"
                           onClick={() => void handleSubmitProof(weeklyQuest)}

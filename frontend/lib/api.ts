@@ -227,6 +227,34 @@ export async function rerollWeeklyQuests(userId: string, date: string) {
   );
 }
 
+export async function uploadProofPhoto(file: File) {
+  const form = new FormData();
+  form.append("file", file);
+
+  const response = await fetch(buildUrl("/api/uploads/proof-photo"), {
+    method: "POST",
+    body: form,
+  });
+
+  const body = await safeParseJson<{ url?: string } & ApiErrorBody>(response);
+
+  if (!response.ok) {
+    const message =
+      body?.error?.message?.trim() || getDefaultStatusMessage(response.status);
+
+    throw new ApiClientError(message, response.status, body?.error?.details);
+  }
+
+  if (!body?.url || typeof body.url !== "string") {
+    throw new ApiClientError(
+      "Unexpected response from photo upload.",
+      response.status
+    );
+  }
+
+  return { url: body.url };
+}
+
 export async function submitWeeklyQuestProof(
   weeklyQuestId: number,
   payload: {
