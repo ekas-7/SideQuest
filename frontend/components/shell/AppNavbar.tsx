@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { SignInButton, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,17 +18,16 @@ export function AppNavbar({
   isSignedIn: boolean;
 }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 px-4 pb-2 pt-4 sm:px-6">
+    <header className="sticky top-0 z-40 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
       <nav
         className="liquid-glass mx-auto flex max-w-6xl items-center justify-between gap-3 rounded-full px-3 py-2.5 sm:px-5"
         aria-label="Main"
       >
         <Link
           href="/"
-          className="shrink-0 font-[family-name:var(--font-display)] text-xl tracking-tight text-foreground sm:text-2xl"
+          className="inline-flex min-h-11 shrink-0 touch-manipulation items-center font-[family-name:var(--font-display)] text-xl leading-none tracking-tight text-foreground sm:min-h-0 sm:text-2xl"
         >
           SideQuest
         </Link>
@@ -69,51 +67,17 @@ export function AppNavbar({
             <UserButton />
           ) : (
             <SignInButton mode="modal">
-              <Button type="button" variant="secondary" className="h-auto rounded-full px-4 py-2 text-sm">
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-11 min-w-11 touch-manipulation rounded-full px-4 py-2 text-sm sm:h-auto sm:min-w-0"
+              >
                 Sign in
               </Button>
             </SignInButton>
           )}
-
-          <button
-            type="button"
-            className="rounded-lg border border-border/80 p-2 text-muted-foreground md:hidden"
-            aria-expanded={open}
-            aria-label="Open menu"
-            onClick={() => setOpen((o) => !o)}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {open ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
         </div>
       </nav>
-
-      {open && (
-        <div className="mx-auto mt-2 max-w-6xl md:hidden">
-          <div className="liquid-glass flex flex-col gap-1 rounded-2xl p-3">
-            {links.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className="rounded-xl px-3 py-2.5 text-sm text-foreground"
-                onClick={() => setOpen(false)}
-              >
-                {label}
-              </Link>
-            ))}
-            <Link href="/app/quests" onClick={() => setOpen(false)}>
-              <span className="mt-1 block rounded-xl bg-primary px-3 py-2.5 text-center text-sm text-primary-foreground">
-                Start quest
-              </span>
-            </Link>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
