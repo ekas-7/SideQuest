@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { GlassPanel } from "@/components/shell/GlassPanel";
 import { StreakCard } from "@/components/dashboard/StreakCard";
 import { StatPills } from "@/components/dashboard/StatPills";
@@ -14,8 +13,6 @@ export default function AppHomePage() {
     isLoaded,
     isSignedIn,
     backendUser,
-    username,
-    setUsername,
     registrationError,
     registrationSuccess,
     isRegistering,
@@ -70,26 +67,24 @@ export default function AppHomePage() {
 
       {!backendUser && (
         <GlassPanel className="animate-fade-rise-delay">
-          <h2 className="text-lg font-medium text-foreground">Choose your name</h2>
+          <h2 className="text-lg font-medium text-foreground">Syncing your profile</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            One-time setup — we&apos;ll sync your streak, XP, and weekly board.
+            We use your Clerk account as the single sign-in and set up your SideQuest profile automatically.
           </p>
-          <form className="mt-4 flex max-w-md flex-col gap-3" onSubmit={handleRegisterUser}>
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Username"
-              disabled={isRegistering}
-              className="rounded-full border-input bg-background/90 px-4"
-            />
-            <Button
-              type="submit"
-              className="h-auto w-fit rounded-full px-6 py-2.5"
-              disabled={isRegistering}
-            >
-              {isRegistering ? "Creating…" : "Create SideQuest profile"}
-            </Button>
-          </form>
+          <div className="mt-4 flex max-w-md flex-col gap-3">
+            <p className="text-sm text-muted-foreground">
+              {isRegistering ? "Creating your SideQuest profile…" : "Profile setup is taking longer than expected."}
+            </p>
+            {!isRegistering && (
+              <Button
+                type="button"
+                className="h-auto w-fit rounded-full px-6 py-2.5"
+                onClick={() => void handleRegisterUser()}
+              >
+                Retry setup
+              </Button>
+            )}
+          </div>
           {registrationError && (
             <p className="mt-3 text-sm text-red-300">{registrationError}</p>
           )}

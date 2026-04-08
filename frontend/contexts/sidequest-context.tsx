@@ -6,11 +6,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useUser } from "@clerk/nextjs";
 import {
+  ApiClientError,
   castVerificationVote,
   createUser,
   getReadableApiError,
@@ -40,12 +42,10 @@ type SideQuestContextValue = {
   isLoaded: boolean;
   isSignedIn: boolean;
   backendUser: BackendUser | null;
-  username: string;
-  setUsername: (v: string) => void;
   registrationError: string | null;
   registrationSuccess: string | null;
   isRegistering: boolean;
-  handleRegisterUser: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  handleRegisterUser: () => Promise<void>;
   weeklyData: WeeklyQuestsResponse | null;
   weeklyError: string | null;
   isWeeklyLoading: boolean;
@@ -73,11 +73,11 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
 
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
-  const [username, setUsername] = useState("");
 
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [registrationSuccess, setRegistrationSuccess] = useState<string | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const isAutoCreatingProfileRef = useRef(false);
 
   const [weeklyData, setWeeklyData] = useState<WeeklyQuestsResponse | null>(null);
   const [weeklyError, setWeeklyError] = useState<string | null>(null);
@@ -112,6 +112,81 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
 
     return candidate.trim();
   }, [clerkUser]);
+
+  const buildUsernameCandidate = useCallback(
+    (suffix?: string) => {
+      const baseSource = defaultUsername || clerkUser?.id?.slice(0, 8) || "adventurer";
+      const sanitized = baseSource
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 20);
+      const base = sanitized || "adventurer";
+
+      if (!suffix) {
+        return base;
+      }
+
+      return `${base}_${suffix}`.slice(0, 28);
+    },
+    [clerkUser?.id, defaultUsername]
+  );
+
+  const handleRegisterUser = useCallback(async () => {
+    if (!clerkUser?.id || backendUser?.id || isAutoCreatingProfileRef.current) {
+      return;
+    }
+
+    isAutoCreatingProfileRef.current = true;
+    setIsRegistering(true);
+    setRegistrationError(null);
+    setRegistrationSuccess(null);
+
+    const fallbackSuffix = clerkUser.id.slice(-4).toLowerCase();
+    const candidates = [
+      buildUsernameCandidate(),
+      buildUsernameCandidate(fallbackSuffix),
+    ];
+
+    try {
+      let createdUser: BackendUser | null = null;
+
+      for (const candidate of candidates) {
+        try {
+          const response = await createUser({ username: candidate });
+          createdUser = response.user;
+          break;
+        } catch (error) {
+          if (error instanceof ApiClientError && error.status === 409) {
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      if (!createdUser) {
+        throw new Error("Unable to create profile automatically. Please retry.");
+      }
+
+      setBackendUser(createdUser);
+      window.localStorage.setItem(
+        buildStorageKey(clerkUser.id),
+        JSON.stringify(createdUser)
+      );
+      setRegistrationSuccess(`Welcome, @${createdUser.username}. Your quests are ready.`);
+      await Promise.all([
+        getWeeklyQuests(createdUser.id, getTodayDate()).then(setWeeklyData),
+        getVerificationAssignments(createdUser.id).then((r) =>
+          setAssignments(r.assignments)
+        ),
+      ]);
+    } catch (error) {
+      setRegistrationError(getReadableApiError(error));
+    } finally {
+      setIsRegistering(false);
+      isAutoCreatingProfileRef.current = false;
+    }
+  }, [backendUser?.id, buildUsernameCandidate, clerkUser?.id]);
 
   const loadWeeklyQuests = useCallback(async () => {
     if (!backendUser?.id) {
@@ -157,19 +232,18 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     const stored = window.localStorage.getItem(buildStorageKey(clerkUser.id));
 
     if (!stored) {
-      setUsername(defaultUsername);
+      void handleRegisterUser();
       return;
     }
 
     try {
       const parsed = JSON.parse(stored) as BackendUser;
       setBackendUser(parsed);
-      setUsername(parsed.username);
     } catch {
       window.localStorage.removeItem(buildStorageKey(clerkUser.id));
-      setUsername(defaultUsername);
+      void handleRegisterUser();
     }
-  }, [clerkUser?.id, defaultUsername, isLoaded, isSignedIn]);
+  }, [clerkUser?.id, handleRegisterUser, isLoaded, isSignedIn]);
 
   useEffect(() => {
     if (!backendUser?.id) {
@@ -179,47 +253,6 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     void loadWeeklyQuests();
     void loadAssignments();
   }, [backendUser?.id, loadAssignments, loadWeeklyQuests]);
-
-  const handleRegisterUser = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const trimmed = username.trim();
-
-    if (!trimmed) {
-      setRegistrationError("Please enter a username.");
-      return;
-    }
-
-    if (!clerkUser?.id) {
-      setRegistrationError("You must be signed in before creating a user.");
-      return;
-    }
-
-    setIsRegistering(true);
-    setRegistrationError(null);
-    setRegistrationSuccess(null);
-
-    try {
-      const response = await createUser({ username: trimmed });
-      const createdUser = response.user;
-      setBackendUser(createdUser);
-      window.localStorage.setItem(
-        buildStorageKey(clerkUser.id),
-        JSON.stringify(createdUser)
-      );
-      setRegistrationSuccess(`Welcome, @${createdUser.username}. Your quests are ready.`);
-      await Promise.all([
-        getWeeklyQuests(createdUser.id, getTodayDate()).then(setWeeklyData),
-        getVerificationAssignments(createdUser.id).then((r) =>
-          setAssignments(r.assignments)
-        ),
-      ]);
-    } catch (error) {
-      setRegistrationError(getReadableApiError(error));
-    } finally {
-      setIsRegistering(false);
-    }
-  };
 
   const handleReroll = async () => {
     if (!backendUser) {
@@ -360,8 +393,6 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     isLoaded,
     isSignedIn: Boolean(isSignedIn),
     backendUser,
-    username,
-    setUsername,
     registrationError,
     registrationSuccess,
     isRegistering,
