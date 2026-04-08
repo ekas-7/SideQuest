@@ -5,6 +5,7 @@ import { SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { GlassPanel } from "@/components/shell/GlassPanel";
 import { VerificationReviewCard } from "@/components/verify/VerificationReviewCard";
+import { VerificationSwipeDeck } from "@/components/verify/VerificationSwipeDeck";
 import { useSideQuest } from "@/contexts/sidequest-context";
 
 export default function VerifyPage() {
@@ -54,6 +55,7 @@ export default function VerifyPage() {
   const pendingForYou = assignments.filter(
     (a) => a.jobStatus === "pending" && a.vote === null
   );
+  const reviewed = assignments.filter((a) => a.vote !== null || a.jobStatus !== "pending");
 
   return (
     <div className="space-y-6 pt-4">
@@ -94,27 +96,37 @@ export default function VerifyPage() {
         </GlassPanel>
       )}
 
-      <div className="flex flex-col gap-5">
-        {assignments.map((assignment, index) => {
-          const delayClass =
-            index === 0
-              ? "animate-fade-rise"
-              : index === 1
-                ? "animate-fade-rise-delay"
-                : "animate-fade-rise-delay-2";
-          return (
-            <div key={assignment.id} className={delayClass}>
+      {!assignmentsError && !isAssignmentsLoading && assignments.length > 0 && (
+        <div className="animate-fade-rise">
+          <VerificationSwipeDeck
+            assignments={assignments}
+            votePendingByJobId={votePendingByJobId}
+            voteStatusByJobId={voteStatusByJobId}
+            onApprove={(jobId) => handleVote(jobId, true)}
+            onReject={(jobId) => handleVote(jobId, false)}
+          />
+        </div>
+      )}
+
+      {reviewed.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Recent decisions
+          </h2>
+          <div className="flex flex-col gap-4">
+            {reviewed.slice(0, 3).map((assignment) => (
               <VerificationReviewCard
+                key={assignment.id}
                 assignment={assignment}
                 isVotePending={votePendingByJobId[assignment.jobId] ?? false}
                 voteStatus={voteStatusByJobId[assignment.jobId]}
                 onApprove={() => void handleVote(assignment.jobId, true)}
                 onReject={() => void handleVote(assignment.jobId, false)}
               />
-            </div>
-          );
-        })}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

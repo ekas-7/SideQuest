@@ -24,12 +24,16 @@ export function VerificationReviewCard({
   voteStatus,
   onApprove,
   onReject,
+  hideActions = false,
+  swipeHint = false,
 }: {
   assignment: VerificationAssignment;
   isVotePending: boolean;
   voteStatus?: string;
   onApprove: () => void;
   onReject: () => void;
+  hideActions?: boolean;
+  swipeHint?: boolean;
 }) {
   const alreadyVoted = assignment.vote !== null;
   const canVote = assignment.jobStatus === "pending" && !alreadyVoted;
@@ -95,25 +99,32 @@ export function VerificationReviewCard({
                   : "reject"}
             </p>
 
-            <div className="mt-auto flex flex-wrap gap-2 pt-1">
-              <Button
-                type="button"
-                className="h-auto rounded-full px-5 py-2"
-                disabled={!canVote || isVotePending}
-                onClick={onApprove}
-              >
-                {isVotePending ? "Sending…" : "Approve"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="h-auto rounded-full px-5 py-2"
-                disabled={!canVote || isVotePending}
-                onClick={onReject}
-              >
-                Reject
-              </Button>
-            </div>
+            {!hideActions && (
+              <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                <Button
+                  type="button"
+                  className="h-auto rounded-full px-5 py-2"
+                  disabled={!canVote || isVotePending}
+                  onClick={onApprove}
+                >
+                  {isVotePending ? "Sending…" : "Approve"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-auto rounded-full px-5 py-2"
+                  disabled={!canVote || isVotePending}
+                  onClick={onReject}
+                >
+                  Reject
+                </Button>
+              </div>
+            )}
+            {swipeHint && canVote && (
+              <p className="mt-auto text-xs uppercase tracking-wider text-muted-foreground">
+                Swipe left to reject · right to approve
+              </p>
+            )}
             {voteStatus && <p className="text-sm text-muted-foreground">{voteStatus}</p>}
           </div>
         </div>
