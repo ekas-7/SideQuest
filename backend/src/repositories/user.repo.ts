@@ -1,10 +1,10 @@
-import type { QueryResultRow } from "pg";
+import type { PoolClient } from "../config/database.ts";
+import { query } from "../config/database.ts";
+import type { User } from "../models/types.ts";
 
-import type { User, StatFocus } from "../models/user.model.ts";
-import { type QueryExecutor, db } from "../config/database.ts";
-
-interface UserRow extends QueryResultRow {
+type UserRow = {
   id: string;
+  clerk_id: string;
   username: string;
   trust_score: number;
   streak: number;
@@ -12,104 +12,124 @@ interface UserRow extends QueryResultRow {
   strength: number;
   agility: number;
   intelligence: number;
-  created_at: string;
+  created_at: Date;
+};
+
+function toUser(row: UserRow): User {
+  return {
+    id: row.id,
+    clerkId: row.clerk_id,
+    username: row.username,
+    trustScore: row.trust_score,
+    streak: row.streak,
+    xp: row.xp,
+    strength: row.strength,
+    agility: row.agility,
+    intelligence: row.intelligence,
+    createdAt: row.created_at.toISOString(),
+  };
 }
 
-const mapUser = (row: UserRow): User => ({
-  id: row.id,
-  username: row.username,
-  trustScore: row.trust_score,
-  streak: row.streak,
-  xp: row.xp,
-  strength: row.strength,
-  agility: row.agility,
-  intelligence: row.intelligence,
-  createdAt: row.created_at,
-});
-
-export const createUser = async (username: string, executor: QueryExecutor = db): Promise<User> => {
-  const id = crypto.randomUUID();
-  const { rows } = await executor.query<UserRow>(
+export async function createUserRepo(
+  clerkId: string,
+  username: string,
+  client?: PoolClient,
+): Promise<User> {
+  const result = await query<UserRow>(
     `
-      INSERT INTO users (id, username)
+      INSERT INTO users (clerk_id, username)
       VALUES ($1, $2)
-      RETURNING id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+      RETURNING id, clerk_id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
     `,
-    [id, username],
+    [clerkId, username],
+    client,
   );
 
-  const row = rows[0];
+  const row = result.rows[0];
   if (!row) {
-    throw new Error("Failed to create user.");
+    throw new Error("Failed to create user");
   }
 
-  return mapUser(row);
-};
+  return toUser(row);
+}
 
-export const getUserById = async (id: string, executor: QueryExecutor = db): Promise<User | null> => {
-  const { rows } = await executor.query<UserRow>(
+export async function getUserByClerkIdRepo(clerkId: string, client?: PoolClient): Promise<User | null> {
+  const result = await query<UserRow>(
     `
-      SELECT id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+      SELECT id, clerk_id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
       FROM users
-      WHERE id = $1
+      WHERE clerk_id = $1
+      LIMIT 1
     `,
-    [id],
+    [clerkId],
+    client,
   );
 
-  return rows[0] ? mapUser(rows[0]) : null;
-};
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
 
-export const listRandomUsersExcluding = async (
-  excludeUserId: string,
-  limit: number,
-  executor: QueryExecutor = db,
-): Promise<User[]> => {
-  const { rows } = await executor.query<UserRow>(
+export async function getUserByIdRepo(userId: string, client?: PoolClient): Promise<User | null> {
+  const result = await query<UserRow>(
     `
-      SELECT id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+      SELECT id, clerk_id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+      FROM users
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [userId],
+    client,
+  );
+
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
+
+export async function getUserByUsernameRepo(username: string, client?: PoolClient): Promise<User | null> {
+  const result = await query<UserRow>(
+    `
+      SELECT id, clerk_id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+      FROM users
+      WHERE username = $1
+      LIMIT 1
+    `,
+    [username],
+    client,
+  );
+
+  return result.rows[0] ? toUser(result.rows[0]) : null;
+}
+
+export async function updateMeUsernameRepo(userId: string, username: string, client?: PoolClient): Promise<User> {
+  const result = await query<UserRow>(
+    `
+      UPDATE users
+      SET username = $2
+      WHERE id = $1
+      RETURNING id, clerk_id, username, trust_score, streak, xp, strength, agility, intelligence, created_at
+    `,
+    [userId, username],
+    client,
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error("Failed to update username");
+  }
+
+  return toUser(row);
+}
+
+export async function listUsersExcludingRepo(userId: string, limit: number, client?: PoolClient): Promise<string[]> {
+  const result = await query<{ id: string }>(
+    `
+      SELECT id
       FROM users
       WHERE id <> $1
-      ORDER BY RANDOM()
+      ORDER BY random()
       LIMIT $2
     `,
-    [excludeUserId, limit],
+    [userId, limit],
+    client,
   );
 
-  return rows.map(mapUser);
-};
-
-export const applyProgressForVerifiedQuest = async (
-  userId: string,
-  xpGain: number,
-  statFocus: StatFocus,
-  statGain: number,
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  const column = statFocus === "intelligence" ? "intelligence" : statFocus;
-  await executor.query(
-    `
-      UPDATE users
-      SET
-        xp = xp + $2,
-        streak = streak + 1,
-        ${column} = ${column} + $3
-      WHERE id = $1
-    `,
-    [userId, xpGain, statGain],
-  );
-};
-
-export const applyTrustDelta = async (
-  userId: string,
-  delta: number,
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  await executor.query(
-    `
-      UPDATE users
-      SET trust_score = trust_score + $2
-      WHERE id = $1
-    `,
-    [userId, delta],
-  );
-};
+  return result.rows.map((r) => r.id);
+}

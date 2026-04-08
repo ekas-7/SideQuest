@@ -1,32 +1,28 @@
-import { config as loadEnv } from "dotenv";
+import "dotenv/config";
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
-
-loadEnv();
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL is required in environment variables.");
+  throw new Error("DATABASE_URL is required");
 }
 
-export const db = new Pool({ connectionString });
+const db = new Pool({ connectionString });
 
-export interface QueryExecutor {
-  query<R extends QueryResultRow = QueryResultRow>(text: string, params?: unknown[]): Promise<QueryResult<R>>;
-}
-
-export const query = <T extends QueryResultRow = QueryResultRow>(
+async function query<T extends QueryResultRow = QueryResultRow>(
   text: string,
   params: unknown[] = [],
-): Promise<QueryResult<T>> => db.query<T>(text, params);
+  client?: PoolClient,
+): Promise<QueryResult<T>> {
+  if (client) return client.query<T>(text, params);
+  return db.query<T>(text, params);
+}
 
-export const runInTransaction = async <T>(
-  operation: (client: PoolClient) => Promise<T>,
-): Promise<T> => {
+async function runInTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const result = await operation(client);
+    const result = await work(client);
     await client.query("COMMIT");
     return result;
   } catch (error) {
@@ -35,4 +31,7 @@ export const runInTransaction = async <T>(
   } finally {
     client.release();
   }
-};
+}
+
+export { db, query, runInTransaction };
+export type { PoolClient };

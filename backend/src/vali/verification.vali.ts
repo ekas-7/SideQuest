@@ -1,38 +1,13 @@
-import { HttpError } from "../utils/http-error.ts";
+import { asBoolean, asIntParam, asString } from "./common.vali.ts";
 
-export const validateJobIdParam = (jobId: string): number => {
-  const parsed = Number(jobId);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new HttpError(400, "jobId must be a positive integer.");
-  }
+export function validateJobId(param: string) {
+  return asIntParam(param, "jobId");
+}
 
-  return parsed;
-};
-
-export const validateVoteInput = (payload: unknown): { voterUserId: string; vote: boolean } => {
-  const body = payload as Record<string, unknown>;
-
-  const voterUserId = typeof body?.voterUserId === "string" ? body.voterUserId.trim() : "";
-  const voteValue = body?.vote;
-
-  if (!voterUserId) {
-    throw new HttpError(400, "voterUserId is required.");
-  }
-
-  if (typeof voteValue !== "boolean") {
-    throw new HttpError(400, "vote must be a boolean.");
-  }
-
+export async function validateCastVote(body: unknown) {
+  const source = (body ?? {}) as Record<string, unknown>;
   return {
-    voterUserId,
-    vote: voteValue,
+    voterUserId: asString(source.voterUserId, "voterUserId", { min: 1, max: 100 }),
+    vote: asBoolean(source.vote, "vote"),
   };
-};
-
-export const validateVoterUserIdParam = (voterUserId: string): string => {
-  const normalized = voterUserId.trim();
-  if (!normalized) {
-    throw new HttpError(400, "voterUserId is required.");
-  }
-  return normalized;
-};
+}

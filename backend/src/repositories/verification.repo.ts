@@ -1,274 +1,195 @@
-import type { QueryResultRow } from "pg";
+import type { PoolClient } from "../config/database.ts";
+import { query } from "../config/database.ts";
+import type { VerificationAssignment } from "../models/types.ts";
 
-import type {
-  VerificationAssignmentDetail,
-  VerificationJob,
-  VerificationJobStatus,
-  VerificationVote,
-} from "../models/verification.model.ts";
-import { type QueryExecutor, db } from "../config/database.ts";
-
-interface VerificationJobRow extends QueryResultRow {
+type JobRow = {
   id: number;
-  weekly_side_quest_id: number;
+  weekly_quest_id: number;
+  status: "pending" | "approved" | "rejected";
+  approvals: number;
+  rejections: number;
   required_votes: number;
-  status: VerificationJobStatus;
-  created_at: string;
-  decided_at: string | null;
-}
+};
 
-interface VerificationAssignmentRow extends QueryResultRow {
-  id: number;
-  job_id: number;
-  voter_user_id: string;
-  vote: boolean | null;
-  responded_at: string | null;
-  trust_delta_applied: boolean;
-  created_at: string;
-}
-
-interface RespondedVoteRow extends QueryResultRow {
-  id: number;
-  voter_user_id: string;
-  vote: boolean;
-  responded_at: string;
-}
-
-const mapJob = (row: VerificationJobRow): VerificationJob => ({
-  id: row.id,
-  weeklySideQuestId: row.weekly_side_quest_id,
-  requiredVotes: row.required_votes,
-  status: row.status,
-  createdAt: row.created_at,
-  decidedAt: row.decided_at,
-});
-
-export interface VerificationAssignment {
-  id: number;
-  jobId: number;
-  voterUserId: string;
-  vote: boolean | null;
-  respondedAt: string | null;
-  trustDeltaApplied: boolean;
-  createdAt: string;
-}
-
-const mapAssignment = (row: VerificationAssignmentRow): VerificationAssignment => ({
-  id: row.id,
-  jobId: row.job_id,
-  voterUserId: row.voter_user_id,
-  vote: row.vote,
-  respondedAt: row.responded_at,
-  trustDeltaApplied: row.trust_delta_applied,
-  createdAt: row.created_at,
-});
-
-export const createVerificationJob = async (
-  weeklySideQuestId: number,
-  requiredVotes: number,
-  executor: QueryExecutor = db,
-): Promise<VerificationJob> => {
-  const { rows } = await executor.query<VerificationJobRow>(
+export async function createVerificationJobRepo(weeklyQuestId: number, client?: PoolClient): Promise<number> {
+  const result = await query<{ id: number }>(
     `
-      INSERT INTO verification_jobs (weekly_side_quest_id, required_votes)
-      VALUES ($1, $2)
-      ON CONFLICT (weekly_side_quest_id)
-      DO UPDATE SET weekly_side_quest_id = EXCLUDED.weekly_side_quest_id
-      RETURNING id, weekly_side_quest_id, required_votes, status, created_at, decided_at
+      INSERT INTO verification_jobs (weekly_quest_id, status, approvals, rejections, required_votes)
+      VALUES ($1, 'pending', 0, 0, 5)
+      RETURNING id
     `,
-    [weeklySideQuestId, requiredVotes],
+    [weeklyQuestId],
+    client,
   );
 
-  const row = rows[0];
+  const row = result.rows[0];
   if (!row) {
-    throw new Error("Failed to create verification job.");
+    throw new Error("Failed to create verification job");
   }
 
-  return mapJob(row);
-};
-
-export const getVerificationJobById = async (
-  id: number,
-  executor: QueryExecutor = db,
-): Promise<VerificationJob | null> => {
-  const { rows } = await executor.query<VerificationJobRow>(
-    `
-      SELECT id, weekly_side_quest_id, required_votes, status, created_at, decided_at
-      FROM verification_jobs
-      WHERE id = $1
-    `,
-    [id],
-  );
-
-  return rows[0] ? mapJob(rows[0]) : null;
-};
-
-export const createVerificationAssignments = async (
-  jobId: number,
-  voterUserIds: string[],
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  const inserts = voterUserIds.map((voterUserId) =>
-    executor.query(
-      `
-        INSERT INTO verification_assignments (job_id, voter_user_id)
-        VALUES ($1, $2)
-        ON CONFLICT (job_id, voter_user_id) DO NOTHING
-      `,
-      [jobId, voterUserId],
-    ),
-  );
-
-  await Promise.all(inserts);
-};
-
-export const getAssignmentForVoter = async (
-  jobId: number,
-  voterUserId: string,
-  executor: QueryExecutor = db,
-): Promise<VerificationAssignment | null> => {
-  const { rows } = await executor.query<VerificationAssignmentRow>(
-    `
-      SELECT id, job_id, voter_user_id, vote, responded_at, trust_delta_applied, created_at
-      FROM verification_assignments
-      WHERE job_id = $1 AND voter_user_id = $2
-    `,
-    [jobId, voterUserId],
-  );
-
-  return rows[0] ? mapAssignment(rows[0]) : null;
-};
-
-export const recordVoteForAssignment = async (
-  assignmentId: number,
-  vote: boolean,
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  await executor.query(
-    `
-      UPDATE verification_assignments
-      SET vote = $2, responded_at = NOW()
-      WHERE id = $1
-    `,
-    [assignmentId, vote],
-  );
-};
-
-export const listRespondedVotesForJob = async (
-  jobId: number,
-  limit: number,
-  executor: QueryExecutor = db,
-): Promise<VerificationVote[]> => {
-  const { rows } = await executor.query<RespondedVoteRow>(
-    `
-      SELECT id, voter_user_id, vote, responded_at
-      FROM verification_assignments
-      WHERE job_id = $1 AND responded_at IS NOT NULL
-      ORDER BY responded_at ASC
-      LIMIT $2
-    `,
-    [jobId, limit],
-  );
-
-  return rows.map((row) => ({
-    assignmentId: row.id,
-    voterUserId: row.voter_user_id,
-    vote: row.vote,
-    respondedAt: row.responded_at,
-  }));
-};
-
-export const markVerificationJobDecision = async (
-  jobId: number,
-  approved: boolean,
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  await executor.query(
-    `
-      UPDATE verification_jobs
-      SET status = $2, decided_at = NOW()
-      WHERE id = $1
-    `,
-    [jobId, approved ? "approved" : "rejected"],
-  );
-};
-
-export const markTrustDeltaAppliedForAssignments = async (
-  assignmentIds: number[],
-  executor: QueryExecutor = db,
-): Promise<void> => {
-  if (!assignmentIds.length) {
-    return;
-  }
-
-  await executor.query(
-    `
-      UPDATE verification_assignments
-      SET trust_delta_applied = TRUE
-      WHERE id = ANY($1::int[])
-    `,
-    [assignmentIds],
-  );
-};
-
-interface VerificationAssignmentDetailRow extends VerificationAssignmentRow {
-  job_status: VerificationJobStatus;
-  required_votes: number;
-  quest_title: string;
-  proof_description: string | null;
-  proof_url: string | null;
-  submitter_username: string;
-  submitted_at: string | null;
+  return row.id;
 }
 
-const mapAssignmentDetail = (row: VerificationAssignmentDetailRow): VerificationAssignmentDetail => ({
-  id: row.id,
-  jobId: row.job_id,
-  voterUserId: row.voter_user_id,
-  vote: row.vote,
-  respondedAt: row.responded_at,
-  trustDeltaApplied: row.trust_delta_applied,
-  createdAt: row.created_at,
-  jobStatus: row.job_status,
-  requiredVotes: row.required_votes,
-  questTitle: row.quest_title,
-  proofDescription: row.proof_description,
-  proofUrl: row.proof_url,
-  submitterUsername: row.submitter_username,
-  submittedAt: row.submitted_at,
-});
+export async function createAssignmentsRepo(jobId: number, voterUserIds: string[], client?: PoolClient): Promise<void> {
+  for (const voterUserId of voterUserIds) {
+    await query(
+      `INSERT INTO verification_assignments (job_id, voter_user_id) VALUES ($1, $2)`,
+      [jobId, voterUserId],
+      client,
+    );
+  }
+}
 
-export const listAssignmentsForVoter = async (
-  voterUserId: string,
-  executor: QueryExecutor = db,
-): Promise<VerificationAssignmentDetail[]> => {
-  const { rows } = await executor.query<VerificationAssignmentDetailRow>(
+export async function getAssignmentsRepo(voterUserId: string, client?: PoolClient): Promise<VerificationAssignment[]> {
+  const result = await query<{
+    assignment_id: number;
+    job_id: number;
+    weekly_quest_id: number;
+    proof_description: string;
+    proof_url: string;
+    quest_title: string;
+    quest_description: string;
+    submitted_at: Date;
+  }>(
     `
       SELECT
-        va.id,
+        va.id AS assignment_id,
         va.job_id,
-        va.voter_user_id,
-        va.vote,
-        va.responded_at,
-        va.trust_delta_applied,
-        va.created_at,
-        vj.status AS job_status,
-        vj.required_votes,
+        vj.weekly_quest_id,
+        COALESCE(wq.proof_description, '') AS proof_description,
+        COALESCE(wq.proof_url, '') AS proof_url,
         qc.title AS quest_title,
-        wsq.proof_description,
-        wsq.proof_url,
-        u.username AS submitter_username,
-        wsq.submitted_at
+        qc.description AS quest_description,
+        COALESCE(wq.submitted_at, NOW()) AS submitted_at
       FROM verification_assignments va
-      INNER JOIN verification_jobs vj ON vj.id = va.job_id
-      INNER JOIN weekly_side_quests wsq ON wsq.id = vj.weekly_side_quest_id
-      INNER JOIN quest_catalog qc ON qc.id = wsq.quest_id
-      INNER JOIN users u ON u.id = wsq.user_id
+      JOIN verification_jobs vj ON vj.id = va.job_id
+      JOIN weekly_quests wq ON wq.id = vj.weekly_quest_id
+      JOIN quest_catalog qc ON qc.id = wq.quest_id
       WHERE va.voter_user_id = $1
-      ORDER BY va.created_at DESC
+        AND va.vote IS NULL
+        AND vj.status = 'pending'
+      ORDER BY va.id ASC
     `,
     [voterUserId],
+    client,
   );
 
-  return rows.map(mapAssignmentDetail);
-};
+  return result.rows.map((row) => ({
+    assignmentId: row.assignment_id,
+    jobId: row.job_id,
+    weeklyQuestId: row.weekly_quest_id,
+    proofDescription: row.proof_description,
+    proofUrl: row.proof_url,
+    questTitle: row.quest_title,
+    questDescription: row.quest_description,
+    submittedAt: row.submitted_at.toISOString(),
+  }));
+}
+
+export async function getJobRepo(jobId: number, client?: PoolClient): Promise<JobRow | null> {
+  const result = await query<JobRow>(
+    `SELECT id, weekly_quest_id, status, approvals, rejections, required_votes FROM verification_jobs WHERE id = $1`,
+    [jobId],
+    client,
+  );
+  return result.rows[0] ?? null;
+}
+
+export async function ensureVoterAssignmentRepo(jobId: number, voterUserId: string, client?: PoolClient): Promise<boolean> {
+  const result = await query<{ exists: boolean }>(
+    `
+      SELECT EXISTS (
+        SELECT 1 FROM verification_assignments
+        WHERE job_id = $1 AND voter_user_id = $2 AND vote IS NULL
+      ) AS exists
+    `,
+    [jobId, voterUserId],
+    client,
+  );
+  return result.rows[0]?.exists ?? false;
+}
+
+export async function castVoteRepo(jobId: number, voterUserId: string, vote: boolean, client?: PoolClient): Promise<void> {
+  await query(
+    `
+      UPDATE verification_assignments
+      SET vote = $3, voted_at = NOW()
+      WHERE job_id = $1 AND voter_user_id = $2 AND vote IS NULL
+    `,
+    [jobId, voterUserId, vote],
+    client,
+  );
+}
+
+export async function recomputeJobTallyRepo(jobId: number, client?: PoolClient): Promise<JobRow> {
+  const result = await query<JobRow>(
+    `
+      UPDATE verification_jobs vj
+      SET approvals = tally.approvals,
+          rejections = tally.rejections
+      FROM (
+        SELECT
+          job_id,
+          COUNT(*) FILTER (WHERE vote = TRUE)::int AS approvals,
+          COUNT(*) FILTER (WHERE vote = FALSE)::int AS rejections
+        FROM verification_assignments
+        WHERE job_id = $1
+        GROUP BY job_id
+      ) AS tally
+      WHERE vj.id = tally.job_id
+      RETURNING vj.id, vj.weekly_quest_id, vj.status, vj.approvals, vj.rejections, vj.required_votes
+    `,
+    [jobId],
+    client,
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error("Failed to recompute verification tally");
+  }
+
+  return row;
+}
+
+export async function finalizeJobRepo(
+  jobId: number,
+  status: "approved" | "rejected",
+  client?: PoolClient,
+): Promise<void> {
+  await query(
+    `UPDATE verification_jobs SET status = $2, decided_at = NOW() WHERE id = $1`,
+    [jobId, status],
+    client,
+  );
+}
+
+export async function listCastVotesRepo(
+  jobId: number,
+  client?: PoolClient,
+): Promise<{ voterUserId: string; vote: boolean }[]> {
+  const result = await query<{ voter_user_id: string; vote: boolean }>(
+    `
+      SELECT voter_user_id, vote
+      FROM verification_assignments
+      WHERE job_id = $1 AND vote IS NOT NULL
+    `,
+    [jobId],
+    client,
+  );
+
+  return result.rows.map((row) => ({ voterUserId: row.voter_user_id, vote: row.vote }));
+}
+
+export async function updateUserTrustScoreRepo(
+  voterUserId: string,
+  delta: number,
+  client?: PoolClient,
+): Promise<void> {
+  await query(
+    `UPDATE users SET trust_score = trust_score + $2 WHERE id = $1`,
+    [voterUserId, delta],
+    client,
+  );
+}
+
+export type { JobRow };

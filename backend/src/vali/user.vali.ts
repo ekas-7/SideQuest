@@ -1,16 +1,13 @@
-import { HttpError } from "../utils/http-error.ts";
+import { asString } from "./common.vali.ts";
 
-export const validateCreateUserInput = (payload: unknown): { username: string } => {
-  const body = payload as Record<string, unknown>;
-  const username = typeof body?.username === "string" ? body.username.trim().toLowerCase() : "";
+export async function validateCreateUser(body: unknown) {
+  const source = (body ?? {}) as Record<string, unknown>;
+  const username = asString(source.username, "username", { min: 3, max: 20 });
+  return { username: username.toLowerCase() };
+}
 
-  if (!username) {
-    throw new HttpError(400, "username is required.");
-  }
-
-  if (username.length < 3 || username.length > 32) {
-    throw new HttpError(400, "username must be between 3 and 32 characters.");
-  }
-
-  return { username };
-};
+export async function validateUpdateMe(body: unknown) {
+  const source = (body ?? {}) as Record<string, unknown>;
+  const username = asString(source.username, "username", { min: 3, max: 20, optional: true });
+  return { username: username?.toLowerCase() };
+}

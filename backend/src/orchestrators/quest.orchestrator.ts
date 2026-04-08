@@ -1,139 +1,110 @@
 import { runInTransaction } from "../config/database.ts";
-import { HttpError } from "../utils/http-error.ts";
-import { getWeekStartSunday, isWithinWeek } from "../utils/week.ts";
-import * as questService from "../services/quest.service.ts";
-import * as userService from "../services/user.service.ts";
-import * as verificationService from "../services/verification.service.ts";
+import type { WeeklyQuestsResponse } from "../models/types.ts";
+import { questService } from "../services/quest.service.ts";
+import { userService } from "../services/user.service.ts";
+import { verificationService } from "../services/verification.service.ts";
+import { HttpError } from "../utils/http.ts";
+import { getWeekStartISO } from "../utils/week.ts";
 
-const QUESTS_PER_WEEK = 3;
-const MAX_VOTERS = 9;
-const REQUIRED_VOTES = 5;
+const WEEKLY_QUEST_COUNT = 3;
+const VOTER_ASSIGNMENT_COUNT = 9;
 
-export const getOrAssignWeeklyQuests = async (userId: string, date: Date = new Date()) => {
-  const user = await userService.getUserById(userId);
-  if (!user) {
-    throw new HttpError(404, "User not found.");
-  }
-
-  const weekStart = getWeekStartSunday(date);
-  const existing = await questService.listWeeklyQuestsByUserWeek(userId, weekStart);
-
-  if (existing.length === QUESTS_PER_WEEK) {
-    return {
-      weekStart,
-      quests: existing,
-      rerollUsed: (await questService.ensureWeeklyAction(userId, weekStart)).rerollUsed,
-      source: "existing" as const,
-    };
-  }
-
+async function ensureAssigned(userId: string, weekStart: string): Promise<WeeklyQuestsResponse> {
   return runInTransaction(async (client) => {
-    const afterDelete = await questService.listWeeklyQuestsByUserWeek(userId, weekStart, client);
-    if (afterDelete.length && afterDelete.length !== QUESTS_PER_WEEK) {
-      await questService.deleteWeeklyQuests(userId, weekStart, client);
+    let quests = await questService.getWeeklyQuests(userId, weekStart, client);
+    if (quests.length === 0) {
+      const randomIds = await questService.getRandomQuestIds(WEEKLY_QUEST_COUNT, client);
+      if (randomIds.length < WEEKLY_QUEST_COUNT) {
+        throw new HttpError(500, "CATALOG_TOO_SMALL", "Not enough quest catalog records");
+      }
+      await questService.assignWeeklyQuests(userId, weekStart, randomIds, client);
+      quests = await questService.getWeeklyQuests(userId, weekStart, client);
     }
 
-    const picks = await questService.listRandomCatalogItems(QUESTS_PER_WEEK, [], client);
-    if (picks.length < QUESTS_PER_WEEK) {
-      throw new HttpError(400, "Not enough quest catalog items configured.");
-    }
-
-    await questService.createWeeklyQuests(
+    const rerolled = await questService.hasRerolled(userId, weekStart, client);
+    return {
       userId,
       weekStart,
-      picks.map((item) => item.id),
-      client,
-    );
-
-    const quests = await questService.listWeeklyQuestsByUserWeek(userId, weekStart, client);
-    const action = await questService.ensureWeeklyAction(userId, weekStart, client);
-
-    return {
-      weekStart,
       quests,
-      rerollUsed: action.rerollUsed,
-      source: "new" as const,
+      canReroll: !rerolled,
     };
   });
-};
+}
 
-export const rerollWeeklyQuests = async (userId: string, date: Date = new Date()) => {
-  const weekStart = getWeekStartSunday(date);
+export async function getQuestCatalogOrchestrator() {
+  return questService.getCatalog();
+}
+
+export async function getWeeklyQuestsOrchestrator(userId: string, date?: string) {
+  const weekStart = getWeekStartISO(date);
+  return ensureAssigned(userId, weekStart);
+}
+
+export async function rerollWeeklyQuestsOrchestrator(userId: string, date?: string) {
+  const weekStart = getWeekStartISO(date);
 
   return runInTransaction(async (client) => {
-    const current = await getOrAssignWeeklyQuests(userId, date);
-    const action = await questService.ensureWeeklyAction(userId, weekStart, client);
-
-    if (action.rerollUsed) {
-      throw new HttpError(409, "Reroll has already been used for this week.");
-    }
-
-    const currentQuestIds = current.quests.map((quest) => quest.quest.id);
-    const replacement = await questService.listRandomCatalogItems(QUESTS_PER_WEEK, currentQuestIds, client);
-
-    if (replacement.length < QUESTS_PER_WEEK) {
-      throw new HttpError(400, "Not enough alternative quests available for reroll.");
+    const used = await questService.hasRerolled(userId, weekStart, client);
+    if (used) {
+      throw new HttpError(409, "REROLL_ALREADY_USED", "Weekly reroll already used");
     }
 
     await questService.deleteWeeklyQuests(userId, weekStart, client);
-    await questService.createWeeklyQuests(
-      userId,
-      weekStart,
-      replacement.map((item) => item.id),
-      client,
-    );
-    await questService.markWeeklyRerollUsed(userId, weekStart, client);
+    const randomIds = await questService.getRandomQuestIds(WEEKLY_QUEST_COUNT, client);
+    if (randomIds.length < WEEKLY_QUEST_COUNT) {
+      throw new HttpError(500, "CATALOG_TOO_SMALL", "Not enough quest catalog records");
+    }
+
+    await questService.assignWeeklyQuests(userId, weekStart, randomIds, client);
+    await questService.useReroll(userId, weekStart, client);
+
+    const quests = await questService.getWeeklyQuests(userId, weekStart, client);
 
     return {
+      userId,
       weekStart,
-      quests: await questService.listWeeklyQuestsByUserWeek(userId, weekStart, client),
-      rerollUsed: true,
-      source: "rerolled" as const,
+      quests,
+      canReroll: false,
     };
   });
-};
+}
 
-export const submitQuestProof = async (
+export async function getWeeklyHistoryOrchestrator(userId: string, limit: number, cursor?: number) {
+  const items = await questService.getWeeklyHistory(userId, limit, cursor);
+  const nextCursor = items.length === limit ? String(items[items.length - 1]?.id ?? "") : null;
+  return { items, nextCursor: nextCursor || null };
+}
+
+export async function submitProofOrchestrator(
   weeklyQuestId: number,
   userId: string,
   description: string,
   proofUrl: string,
-  date: Date = new Date(),
-) => {
-  const quest = await questService.getWeeklyQuestById(weeklyQuestId);
-  if (!quest) {
-    throw new HttpError(404, "Weekly quest not found.");
-  }
-
-  if (quest.userId !== userId) {
-    throw new HttpError(403, "You can only submit proof for your own quests.");
-  }
-
-  if (quest.status === "verified") {
-    throw new HttpError(409, "Quest already verified.");
-  }
-
-  if (!isWithinWeek(date, quest.weekStart)) {
-    throw new HttpError(400, "Proof submission is only allowed during the active week.");
-  }
-
+) {
   return runInTransaction(async (client) => {
-    await questService.submitWeeklyQuestProof(weeklyQuestId, description, proofUrl, client);
+    const weeklyQuest = await questService.getWeeklyQuestById(weeklyQuestId, client);
+    if (!weeklyQuest) {
+      throw new HttpError(404, "WEEKLY_QUEST_NOT_FOUND", "Weekly quest not found");
+    }
 
-    const job = await verificationService.createJob(weeklyQuestId, REQUIRED_VOTES, client);
-    const voters = await userService.listRandomVoters(userId, MAX_VOTERS, client);
+    if (weeklyQuest.userId !== userId) {
+      throw new HttpError(403, "NOT_QUEST_OWNER", "Only the quest owner can submit proof");
+    }
 
-    await verificationService.createAssignments(
-      job.id,
-      voters.map((voter) => voter.id),
-      client,
-    );
+    if (weeklyQuest.status !== "assigned") {
+      throw new HttpError(422, "INVALID_QUEST_STATE", "Quest is not in an assignable state");
+    }
+
+    await questService.submitProof(weeklyQuestId, description, proofUrl, client);
+
+    const jobId = await verificationService.createVerificationJob(weeklyQuestId, client);
+    const voterUserIds = await userService.listUsersExcluding(userId, VOTER_ASSIGNMENT_COUNT, client);
+    await verificationService.createAssignments(jobId, voterUserIds, client);
 
     return {
       weeklyQuestId,
-      verificationJobId: job.id,
-      assignedVoters: voters.length,
-      requiredVotes: REQUIRED_VOTES,
+      verificationJobId: jobId,
+      status: "submitted" as const,
     };
   });
-};
+}

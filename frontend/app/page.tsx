@@ -23,7 +23,7 @@ export default function Home() {
       <div className="absolute inset-0 z-[1] bg-gradient-to-b from-background/65 via-background/40 to-background/90" />
       <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_20%_20%,hsl(var(--primary)/0.2),transparent_40%),radial-gradient(circle_at_80%_15%,hsl(var(--foreground)/0.15),transparent_32%)]" />
 
-    <nav className="liquid-glass relative z-10 mx-auto mt-[max(1.25rem,env(safe-area-inset-top))] flex w-[min(94%,76rem)] items-center justify-between rounded-full border border-white/20 px-4 py-3 sm:px-6">
+      <nav className="liquid-glass relative z-10 mx-auto mt-[max(1.25rem,env(safe-area-inset-top))] flex w-[min(94%,76rem)] items-center justify-between rounded-full border border-border/60 bg-background/45 px-4 py-3 backdrop-blur-xl sm:px-6">
         <div
           className="text-2xl tracking-tight text-foreground sm:text-3xl"
           style={{ fontFamily: "'Instrument Serif', serif" }}
@@ -33,9 +33,11 @@ export default function Home() {
 
         <Show when="signed-out">
           <SignInButton mode="modal">
-            <Button className="group relative h-auto overflow-hidden rounded-full bg-[#36E2B2] px-6 py-2 text-sm font-semibold text-black shadow-[0_8px_22px_rgb(54_226_178/0.35)] transition-all duration-300 hover:scale-[1.03] hover:ring-2 hover:ring-[#36E2B2] hover:ring-offset-2 hover:ring-offset-black focus-visible:ring-2 focus-visible:ring-[#36E2B2] focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+            <Button
+              variant="secondary"
+              className="group relative h-auto overflow-hidden rounded-full border border-border bg-secondary px-6 py-2 text-sm font-semibold text-foreground transition-all duration-300 hover:scale-[1.03]"
+            >
               <span className="relative z-10">Login</span>
-              <span className="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 group-hover:translate-y-0" />
             </Button>
           </SignInButton>
         </Show>

@@ -1,58 +1,38 @@
-import { HttpError } from "../utils/http-error.ts";
+import { HttpError } from "../utils/http.ts";
+import { asIntParam, asString } from "./common.vali.ts";
 
-const isIsoDate = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-export const validateUserIdParam = (userId: string | undefined): string => {
-  const normalized = (userId ?? "").trim();
-  if (!normalized) {
-    throw new HttpError(400, "userId is required.");
+export function validateWeeklyQuery(query: Record<string, string | undefined>) {
+  const date = query.date?.trim();
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    throw new HttpError(400, "VALIDATION_ERROR", "date must be YYYY-MM-DD");
   }
-  return normalized;
-};
+  return { date };
+}
 
-export const validateDateQuery = (date: string | undefined): Date | undefined => {
-  if (!date) {
-    return undefined;
-  }
-  if (!isIsoDate(date)) {
-    throw new HttpError(400, "date must use YYYY-MM-DD format.");
+export function validateHistoryQuery(query: Record<string, string | undefined>) {
+  const limit = query.limit ? Number.parseInt(query.limit, 10) : 20;
+  if (Number.isNaN(limit) || limit <= 0 || limit > 100) {
+    throw new HttpError(400, "VALIDATION_ERROR", "limit must be 1-100");
   }
 
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) {
-    throw new HttpError(400, "Invalid date supplied.");
+  const cursor = query.cursor ? Number.parseInt(query.cursor, 10) : undefined;
+  if (query.cursor && Number.isNaN(cursor)) {
+    throw new HttpError(400, "VALIDATION_ERROR", "cursor must be an integer");
   }
 
-  return parsed;
-};
+  return { limit, cursor };
+}
 
-export const validateProofSubmissionInput = (
-  payload: unknown,
-): { userId: string; description: string; proofUrl: string } => {
-  const body = payload as Record<string, unknown>;
+export async function validateSubmitProof(body: unknown) {
+  const source = (body ?? {}) as Record<string, unknown>;
 
-  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
-  const description = typeof body?.description === "string" ? body.description.trim() : "";
-  const proofUrl = typeof body?.proofUrl === "string" ? body.proofUrl.trim() : "";
+  return {
+    userId: asString(source.userId, "userId", { min: 1, max: 100 }),
+    description: asString(source.description, "description", { min: 5, max: 500 }),
+    proofUrl: asString(source.proofUrl, "proofUrl", { min: 8, max: 2000 }),
+  };
+}
 
-  if (!userId) {
-    throw new HttpError(400, "userId is required.");
-  }
-  if (!description) {
-    throw new HttpError(400, "description is required.");
-  }
-  if (!proofUrl) {
-    throw new HttpError(400, "proofUrl is required.");
-  }
-
-  return { userId, description, proofUrl };
-};
-
-export const validateWeeklyQuestIdParam = (weeklyQuestId: string | undefined): number => {
-  const parsed = Number(weeklyQuestId ?? "");
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new HttpError(400, "weeklyQuestId must be a positive integer.");
-  }
-
-  return parsed;
-};
+export function validateWeeklyQuestId(param: string) {
+  return asIntParam(param, "weeklyQuestId");
+}

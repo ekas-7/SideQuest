@@ -1,81 +1,139 @@
 import { runInTransaction } from "../config/database.ts";
-import { HttpError } from "../utils/http-error.ts";
-import { tallyVotes } from "../utils/voting.ts";
-import * as verificationService from "../services/verification.service.ts";
-import * as questService from "../services/quest.service.ts";
-import * as userService from "../services/user.service.ts";
+import type { CastVoteResponse } from "../models/types.ts";
+import { dashboardService } from "../services/dashboard.service.ts";
+import { questService } from "../services/quest.service.ts";
+import { userService } from "../services/user.service.ts";
+import { verificationService } from "../services/verification.service.ts";
+import { HttpError } from "../utils/http.ts";
 
-export const castVerificationVote = async (jobId: number, voterUserId: string, vote: boolean) => {
+function decideJobStatus(approvals: number, rejections: number, requiredVotes: number): "approved" | "rejected" | null {
+  if (approvals >= 3) return "approved";
+  if (rejections >= 3) return "rejected";
+  const total = approvals + rejections;
+  if (total < requiredVotes) return null;
+  return approvals >= rejections ? "approved" : "rejected";
+}
+
+export async function getAssignmentsOrchestrator(voterUserId: string) {
+  const user = await userService.getById(voterUserId);
+  if (!user) throw new HttpError(404, "USER_NOT_FOUND", "Voter user not found");
+
+  const assignments = await verificationService.getAssignments(voterUserId);
+  return { assignments };
+}
+
+export async function castVoteOrchestrator(jobId: number, voterUserId: string, vote: boolean): Promise<CastVoteResponse> {
   return runInTransaction(async (client) => {
-    const job = await verificationService.getJobById(jobId, client);
-    if (!job) {
-      throw new HttpError(404, "Verification job not found.");
-    }
-
+    const job = await verificationService.getJob(jobId, client);
+    if (!job) throw new HttpError(404, "JOB_NOT_FOUND", "Verification job not found");
     if (job.status !== "pending") {
-      throw new HttpError(409, "This verification job has already been decided.");
+      throw new HttpError(409, "JOB_ALREADY_FINALIZED", "Verification job is already finalized");
     }
 
-    const assignment = await verificationService.getAssignmentForVoter(jobId, voterUserId, client);
-    if (!assignment) {
-      throw new HttpError(403, "You are not assigned to this verification job.");
+    const hasAssignment = await verificationService.ensureVoterAssignment(jobId, voterUserId, client);
+    if (!hasAssignment) {
+      throw new HttpError(403, "NO_ASSIGNMENT", "User is not eligible to vote this job");
     }
 
-    if (assignment.respondedAt) {
-      throw new HttpError(409, "You have already voted for this job.");
-    }
+    await verificationService.castVote(jobId, voterUserId, vote, client);
+    const tally = await verificationService.recomputeJobTally(jobId, client);
 
-    await verificationService.recordVote(assignment.id, vote, client);
-
-    const votes = await verificationService.listRespondedVotes(jobId, job.requiredVotes, client);
-    if (votes.length < job.requiredVotes) {
+    const finalStatus = decideJobStatus(tally.approvals, tally.rejections, tally.required_votes);
+    if (!finalStatus) {
       return {
+        status: "pending",
         jobId,
-        status: "pending" as const,
-        votesCollected: votes.length,
-        votesRequired: job.requiredVotes,
+        approvals: tally.approvals,
+        rejections: tally.rejections,
+        requiredVotes: tally.required_votes,
       };
     }
 
-    const tally = tallyVotes(votes.map((entry) => entry.vote));
-    const approved = tally.majorityVote;
+    await verificationService.finalizeJob(jobId, finalStatus, client);
 
-    await verificationService.decideJob(jobId, approved, client);
-    await questService.decideWeeklyQuest(job.weeklySideQuestId, approved, client);
+    const weeklyQuest = await questService.getWeeklyQuestById(tally.weekly_quest_id, client);
+    if (!weeklyQuest) throw new HttpError(404, "WEEKLY_QUEST_NOT_FOUND", "Weekly quest not found");
 
-    const quest = await questService.getWeeklyQuestById(job.weeklySideQuestId, client);
-    if (!quest) {
-      throw new HttpError(404, "Associated weekly quest not found.");
+    if (finalStatus === "approved") {
+      await questService.markQuestVerified(tally.weekly_quest_id, client);
+      const owner = await userService.getById(weeklyQuest.userId, client);
+      if (owner) {
+        const xpGain = weeklyQuest.quest.toughness * 100;
+        const statGain = weeklyQuest.quest.toughness;
+
+        await runRewardUpdate(owner.id, xpGain, statGain, weeklyQuest.quest.statFocus, client);
+      }
+    } else {
+      await questService.markQuestRejected(tally.weekly_quest_id, client);
     }
 
-    if (approved) {
-      const xpGain = quest.quest.toughness * 100;
-      const statGain = quest.quest.toughness;
-      await userService.applyProgressForVerifiedQuest(quest.userId, xpGain, quest.quest.statFocus, statGain, client);
+    const castVotes = await verificationService.listCastVotes(jobId, client);
+    for (const cast of castVotes) {
+      const delta = cast.vote === (finalStatus === "approved") ? 1 : -1;
+      await verificationService.updateUserTrustScore(cast.voterUserId, delta, client);
     }
-
-    for (const castVote of votes) {
-      const delta = castVote.vote === approved ? 1 : -1;
-      await userService.applyTrustDelta(castVote.voterUserId, delta, client);
-    }
-
-    await verificationService.markTrustApplied(
-      votes.map((entry) => entry.assignmentId),
-      client,
-    );
 
     return {
+      status: finalStatus,
       jobId,
-      status: approved ? "approved" : "rejected",
       approvals: tally.approvals,
       rejections: tally.rejections,
-      majorityVote: tally.majorityVote,
-      votesUsed: votes.length,
+      requiredVotes: tally.required_votes,
     };
   });
-};
+}
 
-export const listAssignmentsForVoter = async (voterUserId: string) => {
-  const assignments = await verificationService.listAssignmentsForVoter(voterUserId);
-  return { assignments };
-};
+async function runRewardUpdate(
+  userId: string,
+  xpGain: number,
+  statGain: number,
+  statFocus: "strength" | "agility" | "intelligence",
+  client: Parameters<typeof userService.getById>[1],
+) {
+  const user = await userService.getById(userId, client);
+  if (!user) return;
+
+  const next = {
+    streak: user.streak + 1,
+    xp: user.xp + xpGain,
+    strength: user.strength,
+    agility: user.agility,
+    intelligence: user.intelligence,
+  };
+
+  next[statFocus] += statGain;
+
+  await import("../config/database.ts").then(({ query }) =>
+    query(
+      `
+        UPDATE users
+        SET streak = $2,
+            xp = $3,
+            strength = $4,
+            agility = $5,
+            intelligence = $6
+        WHERE id = $1
+      `,
+      [userId, next.streak, next.xp, next.strength, next.agility, next.intelligence],
+      client,
+    ),
+  );
+
+  await dashboardService.upsertStatHistory(userId, "streak", next.streak, client);
+  await dashboardService.upsertStatHistory(userId, "xp", next.xp, client);
+}
+
+export async function getVerificationJobOrchestrator(jobId: number) {
+  const job = await verificationService.getJob(jobId);
+  if (!job) throw new HttpError(404, "JOB_NOT_FOUND", "Verification job not found");
+
+  return {
+    job: {
+      id: job.id,
+      status: job.status,
+      approvals: job.approvals,
+      rejections: job.rejections,
+      requiredVotes: job.required_votes,
+    },
+  };
+}
