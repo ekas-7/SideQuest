@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SignOutButton } from "@clerk/nextjs";
 import {
   Camera,
   Check,
   Compass,
   EyeOff,
+  LogOut,
   Navigation2,
   ShieldCheck,
   Swords,
@@ -89,6 +91,16 @@ const INITIAL_VERIFY_QUEUE: VerifyCard[] = [
 ];
 
 const INITIAL_TIMER = 7 * 24 * 60 * 60;
+
+const WEEKLY_ALIGNMENT_STEPS = [
+  { label: "W1", status: "complete" },
+  { label: "W2", status: "complete" },
+  { label: "W3", status: "complete" },
+  { label: "W4", status: "complete" },
+  { label: "W5", status: "complete" },
+  { label: "W6", status: "active" },
+  { label: "W7", status: "locked" },
+] as const;
 
 function formatTimer(seconds: number): string {
   const d = Math.floor(seconds / 86400);
@@ -302,6 +314,16 @@ export function ProtocolExperience() {
             <div className="h-full w-2/3 bg-white" />
           </div>
           <p className="text-right text-[9px] font-bold tracking-widest text-slate-400 uppercase">420/600 XP</p>
+
+          <SignOutButton>
+            <button
+              type="button"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-[10px] font-bold tracking-[0.35em] text-slate-300 uppercase transition hover:border-white/20 hover:text-white"
+            >
+              <LogOut className="h-4 w-4" />
+              Logout
+            </button>
+          </SignOutButton>
         </div>
       </aside>
 
@@ -327,6 +349,15 @@ export function ProtocolExperience() {
         >
           <User />
         </button>
+        <SignOutButton>
+          <button
+            type="button"
+            className="text-slate-400 transition-all hover:text-white"
+            aria-label="Logout"
+          >
+            <LogOut />
+          </button>
+        </SignOutButton>
       </nav>
 
       <main className="min-h-screen px-6 pb-44 md:px-16 lg:px-24 xl:ml-80">
@@ -643,7 +674,7 @@ export function ProtocolExperience() {
                         Weekly Alignment
                       </h3>
                       <p className="text-[10px] tracking-[0.3em] text-slate-400 uppercase">
-                        Status of the current 7-day cycle
+                        Status across the 7-week arc
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
@@ -653,24 +684,24 @@ export function ProtocolExperience() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    {["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"].map((day, i) => (
-                      <div key={day} className="flex flex-1 flex-col items-center gap-4">
+                    {WEEKLY_ALIGNMENT_STEPS.map((week) => (
+                      <div key={week.label} className="flex flex-1 flex-col items-center gap-4">
                         <div
                           className={`flex aspect-square w-full items-center justify-center rounded-2xl border transition-all duration-700 ${
-                            i < 5
+                            week.status === "complete"
                               ? "border-transparent bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                              : i === 5
+                              : week.status === "active"
                                 ? "animate-pulse border-white/20 bg-[#161b25] text-white"
                                 : "border-white/5 bg-[#0f1219] text-slate-500/30"
                           }`}
                         >
-                          {i < 5 ? (
+                          {week.status === "complete" ? (
                             <Check className="h-5 w-5" />
                           ) : (
-                            <span className="text-[10px] font-bold tracking-tighter uppercase">{day.charAt(0)}</span>
+                            <span className="text-[10px] font-bold tracking-tighter uppercase">{week.label}</span>
                           )}
                         </div>
-                        <span className="text-[9px] font-bold tracking-widest text-slate-400">{day}</span>
+                        <span className="text-[9px] font-bold tracking-widest text-slate-400">{week.label}</span>
                       </div>
                     ))}
                   </div>

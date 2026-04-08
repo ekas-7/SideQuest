@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Show, SignInButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import RedirectOnSignIn from "@/components/auth/RedirectOnSignIn";
 export default function Home() {
@@ -30,12 +31,22 @@ export default function Home() {
           SideQuest
         </div>
 
-        <Link href="/app/quests">
-          <Button className="group relative h-auto overflow-hidden rounded-full bg-[#36E2B2] px-6 py-2 text-sm font-semibold text-black shadow-[0_8px_22px_rgb(54_226_178/0.35)] transition-all duration-300 hover:scale-[1.03] hover:ring-2 hover:ring-[#36E2B2] hover:ring-offset-2 hover:ring-offset-black focus-visible:ring-2 focus-visible:ring-[#36E2B2] focus-visible:ring-offset-2 focus-visible:ring-offset-black">
-            <span className="relative z-10">Start Quest</span>
-            <span className="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 group-hover:translate-y-0" />
-          </Button>
-        </Link>
+        <Show when="signed-out">
+          <SignInButton mode="modal">
+            <Button className="group relative h-auto overflow-hidden rounded-full bg-[#36E2B2] px-6 py-2 text-sm font-semibold text-black shadow-[0_8px_22px_rgb(54_226_178/0.35)] transition-all duration-300 hover:scale-[1.03] hover:ring-2 hover:ring-[#36E2B2] hover:ring-offset-2 hover:ring-offset-black focus-visible:ring-2 focus-visible:ring-[#36E2B2] focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+              <span className="relative z-10">Login</span>
+              <span className="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 group-hover:translate-y-0" />
+            </Button>
+          </SignInButton>
+        </Show>
+        <Show when="signed-in">
+          <Link href="/app">
+            <Button className="group relative h-auto overflow-hidden rounded-full bg-[#36E2B2] px-6 py-2 text-sm font-semibold text-black shadow-[0_8px_22px_rgb(54_226_178/0.35)] transition-all duration-300 hover:scale-[1.03] hover:ring-2 hover:ring-[#36E2B2] hover:ring-offset-2 hover:ring-offset-black focus-visible:ring-2 focus-visible:ring-[#36E2B2] focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+              <span className="relative z-10">Go to App</span>
+              <span className="absolute inset-0 translate-y-full bg-white/20 transition-transform duration-300 group-hover:translate-y-0" />
+            </Button>
+          </Link>
+        </Show>
       </nav>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100dvh-90px)] w-[min(94%,76rem)] flex-col items-center justify-center px-4 pb-[max(4rem,env(safe-area-inset-bottom))] pt-20 text-center sm:px-6 sm:pt-24">

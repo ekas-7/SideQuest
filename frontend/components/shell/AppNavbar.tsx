@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { SignInButton, SignOutButton, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/app", label: "Home" },
-  { href: "/app/quests", label: "Weekly quests" },
   { href: "/app/verify", label: "Verify" },
 ] as const;
 
@@ -53,18 +52,20 @@ export function AppNavbar({
         </div>
 
         <div className="flex items-center gap-2">
-          <Link href="/app/quests" className="hidden sm:block">
-            <Button
-              type="button"
-              className="h-auto rounded-full px-4 py-2 text-sm"
-              variant="default"
-            >
-              Start quest
-            </Button>
-          </Link>
 
           {isSignedIn ? (
-            <UserButton />
+            <>
+              <SignOutButton>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 min-w-11 touch-manipulation rounded-full px-4 py-2 text-sm sm:h-auto sm:min-w-0"
+                >
+                  Logout
+                </Button>
+              </SignOutButton>
+              <UserButton />
+            </>
           ) : (
             <SignInButton mode="modal">
               <Button
