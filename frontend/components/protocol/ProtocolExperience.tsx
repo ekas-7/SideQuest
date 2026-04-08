@@ -14,6 +14,9 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
+
+import { ChartContainer, type ChartConfig, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 type ViewKey = "dashboard" | "outpost" | "profile";
 
@@ -135,18 +138,23 @@ export function ProtocolExperience() {
 
   const timerDisplay = useMemo(() => formatTimer(timerSeconds), [timerSeconds]);
 
-  const statsPath = useMemo(() => {
-    const center = 50;
-    const radius = 40;
-    const pts = [stats.will, stats.focus, stats.grit, stats.adapt, stats.lore];
-    return pts
-      .map((v, i) => {
-        const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
-        const r = (v / 100) * radius;
-        return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
-      })
-      .join(" ");
-  }, [stats.adapt, stats.focus, stats.grit, stats.lore, stats.will]);
+  const identityRadarChartData = useMemo(
+    () => [
+      { skill: "Will", score: stats.will },
+      { skill: "Focus", score: stats.focus },
+      { skill: "Grit", score: stats.grit },
+      { skill: "Adapt", score: stats.adapt },
+      { skill: "Lore", score: stats.lore },
+    ],
+    [stats.adapt, stats.focus, stats.grit, stats.lore, stats.will]
+  );
+
+  const identityRadarChartConfig = {
+    score: {
+      label: "Alignment",
+      color: "#ffffff",
+    },
+  } satisfies ChartConfig;
 
   const lockQuest = (quest: Quest) => {
     setActiveQuest(quest);
@@ -677,31 +685,27 @@ export function ProtocolExperience() {
                   </header>
 
                   <div className="flex flex-col items-center gap-16 md:flex-row">
-                    <div className="relative h-72 w-72 shrink-0">
-                      <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]">
-                        <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-                        <circle cx="50" cy="50" r="25" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5" />
-                        <g stroke="rgba(255,255,255,0.08)" strokeWidth="0.5">
-                          <line x1="50" y1="50" x2="50" y2="10" />
-                          <line x1="50" y1="50" x2="88" y2="38" />
-                          <line x1="50" y1="50" x2="73" y2="82" />
-                          <line x1="50" y1="50" x2="27" y2="82" />
-                          <line x1="50" y1="50" x2="12" y2="38" />
-                        </g>
-                        <polygon
-                          points={statsPath}
-                          fill="rgba(255,255,255,0.08)"
-                          stroke="white"
-                          strokeWidth="1.2"
-                          className="transition-all duration-1000"
+                    <ChartContainer
+                      config={identityRadarChartConfig}
+                      className="relative h-72 w-72 shrink-0 aspect-square drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+                    >
+                      <RadarChart data={identityRadarChartData} outerRadius="80%">
+                        <PolarGrid stroke="rgba(255,255,255,0.08)" radialLines />
+                        <PolarAngleAxis
+                          dataKey="skill"
+                          tick={{ fill: "rgba(148,163,184,0.9)", fontSize: 10, letterSpacing: 2, fontWeight: 700 }}
                         />
-                      </svg>
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-[0.4em] text-white">WILL</div>
-                      <div className="absolute top-1/3 -right-10 text-[10px] font-bold tracking-[0.4em] text-slate-400">FOCUS</div>
-                      <div className="absolute right-[-1.5rem] bottom-4 text-[10px] font-bold tracking-[0.4em] text-slate-400">GRIT</div>
-                      <div className="absolute bottom-4 -left-6 text-[10px] font-bold tracking-[0.4em] text-slate-400">ADAPT</div>
-                      <div className="absolute top-1/3 -left-10 text-[10px] font-bold tracking-[0.4em] text-slate-400">LORE</div>
-                    </div>
+                        <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+                        <Radar
+                          dataKey="score"
+                          fill="var(--color-score)"
+                          fillOpacity={0.12}
+                          stroke="var(--color-score)"
+                          strokeWidth={1.6}
+                          animationDuration={900}
+                        />
+                      </RadarChart>
+                    </ChartContainer>
 
                     <div className="w-full flex-1 space-y-10">
                       <div className="space-y-4">
