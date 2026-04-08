@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { requireAuth } from "../middlewares/auth.ts";
 import { getHealthController } from "../controllers/health.controller.ts";
 import { createUserController, getMeController, patchMeController } from "../controllers/user.controller.ts";
@@ -27,6 +28,19 @@ import {
 } from "../controllers/notification.controller.ts";
 
 const app = new Hono();
+
+const frontendOrigin = process.env.FRONTEND_ORIGIN ?? "http://localhost:3000";
+
+app.use(
+  "*",
+  cors({
+    origin: frontendOrigin,
+    allowMethods: ["GET", "POST", "PATCH", "PUT", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "x-clerk-user-id"],
+    exposeHeaders: ["Content-Length"],
+    maxAge: 86400,
+  }),
+);
 
 app.get("/health", getHealthController);
 

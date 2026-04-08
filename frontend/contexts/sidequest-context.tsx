@@ -82,6 +82,7 @@ const SideQuestContext = createContext<SideQuestContextValue | null>(null);
 
 export function SideQuestProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
+  const lastResolvedClerkUserIdRef = useRef<string | null>(null);
 
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
 
@@ -208,7 +209,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   );
 
   const handleRegisterUser = useCallback(async () => {
-    if (!clerkUser?.id || backendUser?.id || isAutoCreatingProfileRef.current) {
+    if (!clerkUser?.id || isAutoCreatingProfileRef.current) {
       return;
     }
 
@@ -228,7 +229,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
 
       for (const candidate of candidates) {
         try {
-          const response = await createUser({ username: candidate });
+          const response = await createUser({ username: candidate }, clerkUser.id);
           createdUser = response.user;
           break;
         } catch (error) {
@@ -251,8 +252,10 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       );
       setRegistrationSuccess(`Welcome, @${createdUser.username}. Your quests are ready.`);
       await Promise.all([
-        getWeeklyQuests(createdUser.id, getTodayDate()).then(setWeeklyData),
-        getVerificationAssignments(createdUser.id).then((r) =>
+        getWeeklyQuests(createdUser.id, getTodayDate(), clerkUser.id).then(
+          setWeeklyData
+        ),
+        getVerificationAssignments(createdUser.id, clerkUser.id).then((r) =>
           setAssignments(r.assignments)
         ),
       ]);
@@ -262,10 +265,42 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       setIsRegistering(false);
       isAutoCreatingProfileRef.current = false;
     }
-  }, [backendUser?.id, buildUsernameCandidate, clerkUser?.id]);
+  }, [buildUsernameCandidate, clerkUser?.id]);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+
+    const currentClerkUserId = isSignedIn ? (clerkUser?.id ?? null) : null;
+
+    if (lastResolvedClerkUserIdRef.current === currentClerkUserId) {
+      return;
+    }
+
+    lastResolvedClerkUserIdRef.current = currentClerkUserId;
+
+    setBackendUser(null);
+    setWeeklyData(null);
+    setAssignments([]);
+    setRegistrationError(null);
+    setRegistrationSuccess(null);
+    setWeeklyError(null);
+    setAssignmentsError(null);
+    setProofDrafts({});
+    setProofPendingByQuestId({});
+    setProofStatusByQuestId({});
+    setVotePendingByJobId({});
+    setVoteStatusByJobId({});
+
+    if (!currentClerkUserId) {
+      setOnboardingInterests([]);
+      setSuggestedSideQuests([]);
+    }
+  }, [clerkUser?.id, isLoaded, isSignedIn]);
 
   const loadWeeklyQuests = useCallback(async () => {
-    if (!backendUser?.id) {
+    if (!backendUser?.id || !clerkUser?.id) {
       return;
     }
 
@@ -273,17 +308,21 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     setWeeklyError(null);
 
     try {
-      const response = await getWeeklyQuests(backendUser.id, getTodayDate());
+      const response = await getWeeklyQuests(
+        backendUser.id,
+        getTodayDate(),
+        clerkUser.id
+      );
       setWeeklyData(response);
     } catch (error) {
       setWeeklyError(getReadableApiError(error));
     } finally {
       setIsWeeklyLoading(false);
     }
-  }, [backendUser?.id]);
+  }, [backendUser?.id, clerkUser?.id]);
 
   const loadAssignments = useCallback(async () => {
-    if (!backendUser?.id) {
+    if (!backendUser?.id || !clerkUser?.id) {
       return;
     }
 
@@ -291,14 +330,14 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     setAssignmentsError(null);
 
     try {
-      const response = await getVerificationAssignments(backendUser.id);
+      const response = await getVerificationAssignments(backendUser.id, clerkUser.id);
       setAssignments(response.assignments);
     } catch (error) {
       setAssignmentsError(getReadableApiError(error));
     } finally {
       setIsAssignmentsLoading(false);
     }
-  }, [backendUser?.id]);
+  }, [backendUser?.id, clerkUser?.id]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !clerkUser?.id) {
@@ -307,21 +346,72 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const stored = window.localStorage.getItem(buildStorageKey(clerkUser.id));
+    let isCancelled = false;
 
-    if (!stored) {
-      void handleRegisterUser();
-      return;
-    }
+    const hydrateBackendUser = async () => {
+      try {
+        const fallbackSuffix = clerkUser.id.slice(-4).toLowerCase();
+        const candidates = [
+          buildUsernameCandidate(),
+          buildUsernameCandidate(fallbackSuffix),
+        ];
 
-    try {
-      const parsed = JSON.parse(stored) as BackendUser;
-      setBackendUser(parsed);
-    } catch {
-      window.localStorage.removeItem(buildStorageKey(clerkUser.id));
-      void handleRegisterUser();
-    }
-  }, [clerkUser?.id, handleRegisterUser, isLoaded, isSignedIn]);
+        let resolvedUser: BackendUser | null = null;
+
+        for (const candidate of candidates) {
+          try {
+            const response = await createUser({ username: candidate }, clerkUser.id);
+            resolvedUser = response.user;
+            break;
+          } catch (error) {
+            if (error instanceof ApiClientError && error.status === 409) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+
+        if (!resolvedUser) {
+          throw new Error("Unable to initialize your profile automatically.");
+        }
+
+        if (isCancelled) {
+          return;
+        }
+
+        setBackendUser(resolvedUser);
+        window.localStorage.setItem(
+          buildStorageKey(clerkUser.id),
+          JSON.stringify(resolvedUser)
+        );
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        const cached = window.localStorage.getItem(buildStorageKey(clerkUser.id));
+
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached) as BackendUser;
+            setBackendUser(parsed);
+            return;
+          } catch {
+            window.localStorage.removeItem(buildStorageKey(clerkUser.id));
+          }
+        }
+
+        setRegistrationError(getReadableApiError(error));
+      }
+    };
+
+    void hydrateBackendUser();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [buildUsernameCandidate, clerkUser?.id, isLoaded, isSignedIn]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !clerkUser?.id) {
@@ -341,7 +431,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   }, [backendUser?.id, loadAssignments, loadWeeklyQuests]);
 
   const handleReroll = async () => {
-    if (!backendUser) {
+    if (!backendUser || !clerkUser?.id) {
       return;
     }
 
@@ -349,7 +439,11 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     setWeeklyError(null);
 
     try {
-      const response = await rerollWeeklyQuests(backendUser.id, getTodayDate());
+      const response = await rerollWeeklyQuests(
+        backendUser.id,
+        getTodayDate(),
+        clerkUser.id
+      );
       setWeeklyData(response);
     } catch (error) {
       setWeeklyError(getReadableApiError(error));
@@ -379,7 +473,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   };
 
   const handleSubmitProof = async (weeklyQuest: WeeklyQuest) => {
-    if (!backendUser) {
+    if (!backendUser || !clerkUser?.id) {
       return;
     }
 
@@ -410,7 +504,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     }));
 
     try {
-      const { url: proofUrl } = await uploadProofPhoto(proofFile);
+      const { url: proofUrl } = await uploadProofPhoto(proofFile, clerkUser.id);
 
       setProofStatusByQuestId((prev) => ({
         ...prev,
@@ -421,7 +515,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
         userId: backendUser.id,
         description,
         proofUrl,
-      });
+      }, clerkUser.id);
 
       setProofStatusByQuestId((prev) => ({
         ...prev,
@@ -446,7 +540,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   };
 
   const handleVote = async (jobId: number, vote: boolean) => {
-    if (!backendUser) {
+    if (!backendUser || !clerkUser?.id) {
       return;
     }
 
@@ -457,7 +551,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       const response = await castVerificationVote(jobId, {
         voterUserId: backendUser.id,
         vote,
-      });
+      }, clerkUser.id);
 
       setVoteStatusByJobId((prev) => ({
         ...prev,

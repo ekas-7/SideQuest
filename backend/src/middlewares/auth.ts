@@ -14,9 +14,27 @@ export function getAuth(c: Context): AuthContext {
 }
 
 export async function requireAuth(c: Context, next: Next) {
-  const clerkUserId = c.req.header("x-clerk-user-id")?.trim();
+  if (c.req.method === "OPTIONS") {
+    await next();
+    return;
+  }
+
+  const clerkUserId =
+    c.req.header("x-clerk-user-id")?.trim() ||
+    c.req.header("x-user-id")?.trim() ||
+    process.env.DEV_AUTH_USER_ID?.trim();
+
   if (!clerkUserId) {
-    throw new HttpError(401, "UNAUTHENTICATED", "Missing x-clerk-user-id header");
+    return c.json(
+      {
+        data: null,
+        error: {
+          code: "UNAUTHENTICATED",
+          message: "Missing auth header. Send x-clerk-user-id (or x-user-id for local dev).",
+        },
+      },
+      401,
+    );
   }
 
   c.set("auth", { clerkUserId });

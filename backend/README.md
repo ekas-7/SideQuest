@@ -35,7 +35,11 @@ Implements the full SideQuest feature set with strict layered architecture:
 	 PORT=3001
 	 ```
 
-3. Apply SQL migration in `migrations/001_init.sql` to your PostgreSQL DB.
+3. Apply SQL migrations in order to your PostgreSQL DB:
+
+	- `migrations/001_init.sql`
+	- `migrations/002_users_schema_compat.sql` (required if you already had an older local DB)
+	- `migrations/003_core_schema_compat.sql` (required if weekly/verification tables came from legacy schema names)
 
 4. Start API:
 

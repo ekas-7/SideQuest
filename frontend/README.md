@@ -21,7 +21,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 Create an environment file before running the app:
 
 1. Copy `.env.example` to `.env.local`
-2. Keep `NEXT_PUBLIC_API_BASE_URL` pointed to your backend (default: `http://localhost:3010`)
+2. Keep `NEXT_PUBLIC_API_BASE_URL` pointed to your backend (default: `http://localhost:3001`)
 
 After signing in, open `/white` to use the MVP dashboard:
 
