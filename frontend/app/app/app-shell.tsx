@@ -10,6 +10,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn, backendUser, isOnboardingComplete } = useSideQuest();
   const router = useRouter();
   const pathname = usePathname();
+  const isImmersiveHome = pathname === "/app" || pathname === "/app/";
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !backendUser) {
@@ -34,6 +35,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         Loading…
       </div>
     );
+  }
+
+  if (isImmersiveHome) {
+    return <>{children}</>;
   }
 
   return (

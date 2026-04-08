@@ -109,6 +109,63 @@ body {
   animation: fade-rise 0.8s ease-out 0.4s both;
 }
 
+@keyframes scan {
+  0% {
+    top: -10%;
+  }
+
+  100% {
+    top: 110%;
+  }
+}
+
+.animate-scan {
+  animation: scan 3s linear infinite;
+}
+
+.glass {
+  background: rgb(255 255 255 / 0.03);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.swipe-card {
+  transition:
+    transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+    opacity 0.3s ease;
+  touch-action: none;
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(to bottom right, rgb(255 255 255 / 0.15), transparent, rgb(255 255 255 / 0.05));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.scan-line {
+  position: absolute;
+  z-index: 20;
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.2), transparent);
+}
+
 .sq-card {
   @apply rounded-2xl border border-border/70 bg-background/50 shadow-sm transition-[transform,box-shadow,border-color] duration-300 ease-out;
 }
