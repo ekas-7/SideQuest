@@ -1,11 +1,32 @@
 "use client";
 
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { AppNavbar } from "@/components/shell/AppNavbar";
 import { MobileTabBar } from "@/components/shell/MobileTabBar";
 import { useSideQuest } from "@/contexts/sidequest-context";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn } = useSideQuest();
+  const { isLoaded, isSignedIn, backendUser, isOnboardingComplete } = useSideQuest();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !backendUser) {
+      return;
+    }
+
+    const inOnboarding = pathname.startsWith("/app/onboarding");
+
+    if (!isOnboardingComplete && !inOnboarding) {
+      router.replace("/app/onboarding");
+      return;
+    }
+
+    if (isOnboardingComplete && inOnboarding) {
+      router.replace("/app");
+    }
+  }, [backendUser, isLoaded, isOnboardingComplete, isSignedIn, pathname, router]);
 
   if (!isLoaded) {
     return (

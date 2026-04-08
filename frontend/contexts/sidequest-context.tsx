@@ -32,6 +32,13 @@ import {
   getTodayDate,
   getVoteResultText,
 } from "@/lib/dashboard-utils";
+import {
+  buildOnboardingStorageKey,
+  generateQuestSuggestions,
+  isOnboardingInterest,
+  type OnboardingInterest,
+  type SuggestedSideQuest,
+} from "@/lib/onboarding-data";
 
 type ProofDraft = {
   description: string;
@@ -65,6 +72,10 @@ type SideQuestContextValue = {
   votePendingByJobId: Record<number, boolean>;
   voteStatusByJobId: Record<number, string>;
   handleVote: (jobId: number, vote: boolean) => Promise<void>;
+  onboardingInterests: OnboardingInterest[];
+  suggestedSideQuests: SuggestedSideQuest[];
+  isOnboardingComplete: boolean;
+  saveOnboardingInterests: (interests: OnboardingInterest[]) => void;
 };
 
 const SideQuestContext = createContext<SideQuestContextValue | null>(null);
@@ -103,6 +114,13 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     {}
   );
 
+  const [onboardingInterests, setOnboardingInterests] = useState<
+    OnboardingInterest[]
+  >([]);
+  const [suggestedSideQuests, setSuggestedSideQuests] = useState<
+    SuggestedSideQuest[]
+  >([]);
+
   const defaultUsername = useMemo(() => {
     const candidate =
       clerkUser?.username ||
@@ -129,6 +147,64 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       return `${base}_${suffix}`.slice(0, 28);
     },
     [clerkUser?.id, defaultUsername]
+  );
+
+  const hydrateOnboardingState = useCallback(() => {
+    if (!clerkUser?.id) {
+      setOnboardingInterests([]);
+      setSuggestedSideQuests([]);
+      return;
+    }
+
+    const stored = window.localStorage.getItem(buildOnboardingStorageKey(clerkUser.id));
+
+    if (!stored) {
+      setOnboardingInterests([]);
+      setSuggestedSideQuests([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stored) as unknown;
+      const interests = Array.isArray(parsed)
+        ? parsed.filter(
+            (entry): entry is OnboardingInterest =>
+              typeof entry === "string" && isOnboardingInterest(entry)
+          )
+        : [];
+
+      setOnboardingInterests(interests);
+      setSuggestedSideQuests(generateQuestSuggestions(interests));
+    } catch {
+      window.localStorage.removeItem(buildOnboardingStorageKey(clerkUser.id));
+      setOnboardingInterests([]);
+      setSuggestedSideQuests([]);
+    }
+  }, [clerkUser?.id]);
+
+  const saveOnboardingInterests = useCallback(
+    (interests: OnboardingInterest[]) => {
+      if (!clerkUser?.id) {
+        return;
+      }
+
+      const uniqueInterests = Array.from(new Set(interests)).slice(0, 5);
+      const nextSuggestions = generateQuestSuggestions(uniqueInterests);
+
+      setOnboardingInterests(uniqueInterests);
+      setSuggestedSideQuests(nextSuggestions);
+
+      if (uniqueInterests.length === 0) {
+        window.localStorage.removeItem(buildOnboardingStorageKey(clerkUser.id));
+        return;
+      }
+
+      window.localStorage.setItem(
+        buildOnboardingStorageKey(clerkUser.id),
+        JSON.stringify(uniqueInterests)
+      );
+    },
+    [clerkUser?.id]
   );
 
   const handleRegisterUser = useCallback(async () => {
@@ -226,6 +302,8 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !clerkUser?.id) {
+      setOnboardingInterests([]);
+      setSuggestedSideQuests([]);
       return;
     }
 
@@ -244,6 +322,14 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
       void handleRegisterUser();
     }
   }, [clerkUser?.id, handleRegisterUser, isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser?.id) {
+      return;
+    }
+
+    hydrateOnboardingState();
+  }, [clerkUser?.id, hydrateOnboardingState, isLoaded, isSignedIn]);
 
   useEffect(() => {
     if (!backendUser?.id) {
@@ -416,6 +502,10 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     votePendingByJobId,
     voteStatusByJobId,
     handleVote,
+    onboardingInterests,
+    suggestedSideQuests,
+    isOnboardingComplete: onboardingInterests.length > 0,
+    saveOnboardingInterests,
   };
 
   return (

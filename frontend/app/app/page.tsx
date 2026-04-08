@@ -19,6 +19,9 @@ export default function AppHomePage() {
     handleRegisterUser,
     weeklyData,
     assignments,
+    isOnboardingComplete,
+    onboardingInterests,
+    suggestedSideQuests,
   } = useSideQuest();
 
   if (!isLoaded) {
@@ -96,6 +99,40 @@ export default function AppHomePage() {
 
       {backendUser && (
         <>
+          {isOnboardingComplete && (
+            <GlassPanel className="animate-fade-rise-delay">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-medium text-foreground">Suggested side quests</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Based on your interests: {onboardingInterests.join(", ")}
+                  </p>
+                </div>
+                <Link href="/app/onboarding" className="w-fit">
+                  <Button type="button" variant="secondary" className="h-auto rounded-full px-4 py-2 text-sm">
+                    Edit interests
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {suggestedSideQuests.map((quest) => (
+                  <div
+                    key={`${quest.difficulty}-${quest.interest}`}
+                    className="rounded-xl border border-border/70 bg-secondary/35 p-4"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                      {quest.difficulty}
+                    </p>
+                    <h3 className="mt-1 text-base font-medium text-foreground">{quest.title}</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">Interest: {quest.interest}</p>
+                    <p className="mt-3 text-sm text-muted-foreground">{quest.description}</p>
+                  </div>
+                ))}
+              </div>
+            </GlassPanel>
+          )}
+
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="animate-fade-rise-delay lg:col-span-1">
               <StreakCard user={backendUser} />
