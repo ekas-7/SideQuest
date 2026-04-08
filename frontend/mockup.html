@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SideQuest | The Life-Expansion Protocol</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        base: '#05070a', // Deeper absolute black
+                        surface: '#0f1219',
+                        'surface-accent': '#161b25',
+                        accent: '#f8fafc', 
+                        muted: '#64748b',
+                        gold: '#eab308',
+                        crimson: '#e11d48',
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-up': 'fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'scan': 'scan 3s linear infinite',
+                    },
+                    keyframes: {
+                        fadeUp: {
+                            '0%': { opacity: '0', transform: 'translateY(12px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        scan: {
+                            '0%': { top: '-10%' },
+                            '100%': { top: '110%' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        body {
+            background-color: #05070a;
+            color: #f1f5f9;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .cinematic-shadow {
+            box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.9);
+        }
+        .swipe-card {
+            transition: transform 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease;
+            touch-action: none;
+        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .gradient-border {
+            position: relative;
+        }
+        .gradient-border::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(to bottom right, rgba(255,255,255,0.15), transparent, rgba(255,255,255,0.05));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .scan-line {
+            height: 2px;
+            background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+            position: absolute;
+            width: 100%;
+            z-index: 20;
+        }
+    </style>
+</head>
+<body class="font-sans" x-data="sideQuest()">
+
+    <!-- DESKTOP SIDEBAR -->
+    <aside class="fixed left-0 top-0 h-full w-80 bg-base border-r border-white/5 hidden xl:flex flex-col p-12 z-50">
+        <div class="flex items-center gap-4 mb-20 cursor-pointer group" @click="view = 'dashboard'">
+            <div class="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center rotate-3 group-hover:rotate-0 transition-all duration-500 shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                <i data-lucide="swords" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <span class="font-serif italic text-2xl text-white block leading-none tracking-tight">SideQuest</span>
+                <span class="text-[10px] font-bold text-muted uppercase tracking-[0.4em] opacity-60">Protocol 3.0</span>
+            </div>
+        </div>
+
+        <nav class="space-y-12 flex-1">
+            <div class="space-y-6">
+                <h5 class="text-[10px] font-bold uppercase tracking-[0.5em] text-muted/50 px-2">Discovery</h5>
+                <ul class="space-y-2">
+                    <li @click="view = 'dashboard'" :class="view === 'dashboard' ? 'bg-white/5 text-white' : 'text-muted'" class="px-6 py-4 rounded-2xl hover:text-white transition-all cursor-pointer flex items-center gap-4">
+                        <i data-lucide="compass" class="w-5 h-5"></i> Current Path
+                    </li>
+                    <li @click="view = 'outpost'" :class="view === 'outpost' ? 'bg-white/5 text-white' : 'text-muted'" class="px-6 py-4 rounded-2xl hover:text-white transition-all cursor-pointer flex items-center gap-4">
+                        <i data-lucide="shield-check" class="w-5 h-5"></i> The Outpost
+                    </li>
+                </ul>
+            </div>
+            <div class="space-y-6">
+                <h5 class="text-[10px] font-bold uppercase tracking-[0.5em] text-muted/50 px-2">Personal</h5>
+                <ul class="space-y-2">
+                    <li @click="view = 'profile'" :class="view === 'profile' ? 'bg-white/5 text-white' : 'text-muted'" class="px-6 py-4 rounded-2xl hover:text-white transition-all cursor-pointer flex items-center gap-4">
+                        <i data-lucide="user" class="w-5 h-5"></i> Identity
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="mt-auto p-6 glass rounded-[2rem] border-white/5">
+            <div class="flex items-center gap-4 mb-5">
+                <div class="w-10 h-10 rounded-2xl bg-surface-accent border border-white/10 flex items-center justify-center text-xs font-bold">V</div>
+                <div>
+                    <p class="text-xs font-bold text-white tracking-wide">Vance Thorne</p>
+                    <p class="text-[10px] text-muted uppercase tracking-widest font-medium">Lvl 14 Seeker</p>
+                </div>
+            </div>
+            <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-2">
+                <div class="h-full bg-white w-2/3"></div>
+            </div>
+            <p class="text-[9px] text-right text-muted font-bold tracking-widest uppercase">420/600 XP</p>
+        </div>
+    </aside>
+
+    <!-- MOBILE NAVIGATION -->
+    <nav class="xl:hidden fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] glass rounded-[2.5rem] z-[60] px-10 py-5 flex justify-between items-center cinematic-shadow border-white/10">
+        <button @click="view = 'dashboard'" :class="view === 'dashboard' ? 'text-white scale-110' : 'text-muted'" class="transition-all"><i data-lucide="compass"></i></button>
+        <button @click="view = 'outpost'" :class="view === 'outpost' ? 'text-white scale-110' : 'text-muted'" class="transition-all"><i data-lucide="shield-check"></i></button>
+        <button @click="view = 'profile'" :class="view === 'profile' ? 'text-white scale-110' : 'text-muted'" class="transition-all"><i data-lucide="user"></i></button>
+    </nav>
+
+    <!-- MAIN VIEWPORT -->
+    <main class="xl:ml-80 p-6 md:p-16 lg:p-24 min-h-screen pb-44">
+        
+        <!-- VIEW: DASHBOARD -->
+        <section x-show="view === 'dashboard'" x-transition x-cloak class="animate-fade-up max-w-4xl mx-auto">
+            
+            <!-- STATE: QUEST SELECTION -->
+            <div x-show="!activeQuest" class="space-y-20">
+                <div class="flex flex-col md:flex-row md:items-end justify-between gap-10">
+                    <div class="max-w-2xl">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="text-[10px] font-bold text-gold uppercase tracking-[0.5em]">Weekly Cycle 42</span>
+                            <div class="h-px w-12 bg-gold/30"></div>
+                        </div>
+                        <h1 class="font-serif text-6xl md:text-8xl text-white italic leading-[0.9] mb-8 tracking-tighter">Choose Thy <br>Next Trial.</h1>
+                        <p class="text-muted text-lg leading-relaxed italic">The following pathways have been manifested for your current rank. You may only lock one for the next 7-day cycle.</p>
+                    </div>
+                </div>
+
+                <!-- Vertical Quest Stack -->
+                <div class="space-y-6">
+                    <template x-for="q in weeklyOptions" :key="q.id">
+                        <div class="group relative gradient-border bg-surface rounded-[2.5rem] overflow-hidden cinematic-shadow transition-all duration-500 hover:border-white/20">
+                            <div class="flex flex-col md:flex-row h-full">
+                                <div class="md:w-1/3 h-52 md:h-auto relative overflow-hidden">
+                                    <img :src="q.img" class="w-full h-full object-cover grayscale opacity-40 group-hover:grayscale-0 group-hover:opacity-60 transition-all duration-1000 group-hover:scale-105">
+                                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-surface md:block hidden"></div>
+                                    <div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent md:hidden block"></div>
+                                </div>
+                                <div class="md:w-2/3 p-10 flex flex-col justify-between">
+                                    <div class="mb-8">
+                                        <div class="flex items-center justify-between mb-4">
+                                            <span class="text-[10px] font-bold text-muted uppercase tracking-[0.4em]" x-text="q.category"></span>
+                                            <span class="text-[10px] font-bold text-white/40 uppercase tracking-widest" x-text="q.difficulty"></span>
+                                        </div>
+                                        <h3 class="font-serif text-4xl italic text-white mb-4 leading-none" x-text="q.title"></h3>
+                                        <p class="text-sm text-muted leading-relaxed italic pr-6" x-text="q.desc"></p>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-6">
+                                        <div class="flex gap-4 items-center">
+                                            <div class="flex items-center gap-2 text-[10px] font-bold text-gold uppercase">
+                                                <i data-lucide="zap" class="w-3 h-3"></i> 400 XP
+                                            </div>
+                                        </div>
+                                        <button @click="lockQuest(q)" class="bg-white text-black px-8 py-3.5 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95 shadow-xl shadow-white/5">Lock Path</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- STATE: ACTIVE QUEST -->
+            <div x-show="activeQuest" class="space-y-16" x-cloak>
+                <div class="flex flex-col lg:flex-row gap-12 items-start lg:items-end border-b border-white/5 pb-16">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="w-2.5 h-2.5 rounded-full bg-crimson shadow-[0_0_15px_#e11d48] animate-pulse"></span>
+                            <span class="text-[11px] font-bold text-white uppercase tracking-[0.5em]">Protocol Active</span>
+                        </div>
+                        <h1 class="font-serif text-7xl md:text-9xl text-white italic leading-[0.85] tracking-tighter" x-text="activeQuest?.title"></h1>
+                    </div>
+                    <div class="glass px-10 py-7 rounded-[2.5rem] text-center md:text-right flex flex-col min-w-[240px]">
+                        <span class="text-[10px] font-bold text-muted uppercase tracking-[0.3em] mb-2">Cycle Remaining</span>
+                        <span class="text-4xl font-serif text-white italic tracking-tighter tabular-nums" x-text="timerDisplay"></span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                    <div class="lg:col-span-8 space-y-12">
+                        <div class="group relative gradient-border bg-surface rounded-[3rem] overflow-hidden cinematic-shadow">
+                            <!-- Scanning line effect for active quest -->
+                            <div class="scan-line animate-scan"></div>
+                            
+                            <img :src="activeQuest?.img" class="w-full h-96 object-cover opacity-50">
+                            <div class="absolute inset-0 bg-gradient-to-t from-surface via-surface/40 to-transparent"></div>
+                            
+                            <div class="p-12 relative z-10">
+                                <div class="flex items-center gap-6 mb-10">
+                                    <h4 class="font-serif text-3xl italic text-white leading-none">The Mandate</h4>
+                                    <div class="h-px flex-1 bg-white/10"></div>
+                                </div>
+                                <p class="text-xl text-muted italic leading-relaxed mb-16 pr-10" x-text="activeQuest?.requirement"></p>
+                                
+                                <div @click="modalOpen = true" class="group w-full h-72 border-2 border-dashed border-white/5 rounded-[2.5rem] flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 hover:border-white/20 transition-all duration-500">
+                                    <div class="w-20 h-20 rounded-[2rem] bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 group-hover:bg-white text-muted group-hover:text-black transition-all duration-500 shadow-2xl">
+                                        <i data-lucide="camera" class="w-8 h-8"></i>
+                                    </div>
+                                    <p class="text-xs font-bold text-muted uppercase tracking-[0.3em] group-hover:text-white transition-colors">Manifest Physical Evidence</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4 space-y-8">
+                        <div class="glass p-10 rounded-[3rem] space-y-10">
+                            <div>
+                                <h5 class="text-[11px] font-bold text-muted uppercase tracking-[0.4em] mb-8">Yield Projections</h5>
+                                <div class="space-y-6">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-muted italic">Experience Gain</span>
+                                        <span class="text-sm font-bold text-white tracking-widest">+750 XP</span>
+                                    </div>
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-xs text-muted italic">Honor Allocation</span>
+                                        <span class="text-sm font-bold text-gold tracking-widest">+20 HP</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pt-8 border-t border-white/5">
+                                <h5 class="text-[11px] font-bold text-muted uppercase tracking-[0.4em] mb-6">Penalties</h5>
+                                <p class="text-[11px] italic text-crimson font-medium leading-relaxed uppercase tracking-widest">Failure results in total Momentum reset and Honor deduction.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: THE OUTPOST -->
+        <section x-show="view === 'outpost'" x-transition x-cloak class="animate-fade-up max-w-2xl mx-auto">
+            <header class="text-center mb-20">
+                <h2 class="font-serif text-7xl text-white italic leading-none mb-4">The Outpost</h2>
+                <p class="text-[11px] text-muted uppercase tracking-[0.6em]">Witness and Validate the Deeds</p>
+            </header>
+
+            <div class="relative h-[650px] w-full flex items-center justify-center">
+                <template x-if="verifyQueue.length === 0">
+                    <div class="text-center space-y-8">
+                        <div class="w-24 h-24 bg-surface rounded-[2rem] flex items-center justify-center mx-auto border border-white/5 cinematic-shadow">
+                            <i data-lucide="eye-off" class="w-10 h-10 text-muted opacity-20"></i>
+                        </div>
+                        <p class="text-serif italic text-muted text-2xl">The Registry is silent. <br>All paths are verified.</p>
+                        <button @click="location.reload()" class="text-[10px] font-bold text-accent uppercase tracking-[0.3em] hover:text-white transition-colors">Invoke Fresh Registry</button>
+                    </div>
+                </template>
+                
+                <template x-for="(card, index) in verifyQueue" :key="card.id">
+                    <div 
+                        x-show="index === 0"
+                        class="swipe-card absolute w-full aspect-[4/5] bg-surface rounded-[3.5rem] overflow-hidden cinematic-shadow border border-white/10 cursor-grab active:cursor-grabbing group"
+                        :style="`transform: translateX(${swipeX}px) rotate(${swipeX/25}deg); z-index: ${50-index}`"
+                        @mousedown="handleStart($event)" @mousemove="handleMove($event)" @mouseup="handleEnd()"
+                        @touchstart="handleStart($event)" @touchmove="handleMove($event)" @touchend="handleEnd()"
+                    >
+                        <!-- Indicators -->
+                        <div class="absolute inset-0 z-30 flex items-center justify-between px-16 pointer-events-none">
+                            <span class="bg-crimson text-white px-8 py-4 rounded-full font-bold uppercase text-[11px] tracking-widest opacity-0 shadow-2xl scale-110" :style="{ opacity: swipeX < -60 ? 1 : 0 }">Reject</span>
+                            <span class="bg-emerald-600 text-white px-8 py-4 rounded-full font-bold uppercase text-[11px] tracking-widest opacity-0 shadow-2xl scale-110" :style="{ opacity: swipeX > 60 ? 1 : 0 }">Verify</span>
+                        </div>
+                        
+                        <div class="h-[60%] relative overflow-hidden">
+                            <img :src="card.image" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-80">
+                            <div class="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent"></div>
+                        </div>
+
+                        <div class="p-12 flex flex-col justify-between h-[40%]">
+                            <div>
+                                <div class="flex items-center gap-4 mb-6">
+                                    <div class="w-10 h-10 rounded-2xl bg-surface-accent border border-white/10 flex items-center justify-center text-[11px] font-bold text-white shadow-xl">S</div>
+                                    <div>
+                                        <p class="text-xs font-bold text-white tracking-widest" x-text="card.user"></p>
+                                        <p class="text-[10px] text-muted uppercase tracking-tighter" x-text="card.time"></p>
+                                    </div>
+                                    <span class="ml-auto text-[9px] font-bold text-muted uppercase tracking-widest border border-white/5 px-3 py-1.5 rounded-full" x-text="card.quest"></span>
+                                </div>
+                                <p class="text-lg text-muted italic leading-relaxed line-clamp-2" x-text="card.desc"></p>
+                            </div>
+                            <div class="flex gap-4">
+                                <button @click="swipeX = -500; resolveSwipe()" class="flex-1 border border-white/5 bg-white/5 py-5 rounded-2xl hover:bg-crimson/10 transition-all hover:scale-[1.02]"><i data-lucide="x" class="w-5 h-5 mx-auto text-muted"></i></button>
+                                <button @click="swipeX = 500; resolveSwipe()" class="flex-1 border border-white/5 bg-white/5 py-5 rounded-2xl hover:bg-emerald-600/10 transition-all hover:scale-[1.02]"><i data-lucide="check" class="w-5 h-5 mx-auto text-accent"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </section>
+
+        <!-- VIEW: PROFILE & IDENTITY -->
+        <section x-show="view === 'profile'" x-transition x-cloak class="animate-fade-up max-w-6xl mx-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-16">
+                
+                <!-- Archetype Column -->
+                <div class="lg:col-span-5 space-y-16">
+                    <div class="flex flex-col items-center text-center">
+                        <div class="relative mb-12 group">
+                            <div class="absolute inset-0 bg-white/5 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <img src="https://i.pravatar.cc/150?u=vance" class="w-48 h-48 rounded-[3.5rem] object-cover relative z-10 border border-white/10 cinematic-shadow group-hover:scale-105 transition-transform duration-700">
+                        </div>
+                        <h2 class="font-serif text-7xl text-white italic mb-4 leading-none tracking-tighter">Vance Thorne</h2>
+                        <div class="flex items-center gap-6">
+                            <span class="text-[11px] font-bold text-muted uppercase tracking-[0.5em]">Lvl 14 Seeker</span>
+                            <div class="h-1.5 w-1.5 rounded-full bg-muted/40"></div>
+                            <span class="text-[11px] font-bold text-gold uppercase tracking-[0.5em]">340 Honor</span>
+                        </div>
+                    </div>
+
+                    <div class="gradient-border bg-surface rounded-[3.5rem] p-12 cinematic-shadow text-center">
+                        <div class="w-20 h-20 rounded-[2.5rem] bg-surface-accent border border-white/10 flex items-center justify-center mb-10 mx-auto shadow-2xl">
+                            <i data-lucide="navigation-2" class="w-8 h-8 text-white"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-muted uppercase tracking-[0.6em] mb-4 block">Current Alignment</span>
+                        <h3 class="font-serif text-5xl italic text-white mb-8 leading-none">The Urban Nomad</h3>
+                        <p class="text-base text-muted italic leading-relaxed pr-6">"Master of adaptation. Forging a path through the architectural silence of the modern city. Strength found in transitions."</p>
+                    </div>
+                </div>
+
+                <!-- Stats Column -->
+                <div class="lg:col-span-7 space-y-12">
+                    <!-- Weekly Streak Tracker (Polished) -->
+                    <div class="bg-surface rounded-[3.5rem] p-12 border border-white/5 relative overflow-hidden cinematic-shadow">
+                        <div class="flex justify-between items-end mb-12">
+                            <div>
+                                <h3 class="font-serif text-4xl italic text-white leading-none mb-3">Weekly Alignment</h3>
+                                <p class="text-[10px] text-muted uppercase tracking-[0.3em]">Status of the current 7-day cycle</p>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="text-6xl font-serif italic text-white leading-none">05</span>
+                                <span class="text-[10px] font-bold text-gold uppercase tracking-widest mt-2">Active Streak</span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center gap-3">
+                            <template x-for="(day, i) in ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']" :key="day">
+                                <div class="flex flex-col items-center gap-4 flex-1">
+                                    <div class="w-full aspect-square rounded-2xl flex items-center justify-center border transition-all duration-700"
+                                        :class="i < 5 ? 'bg-white text-black border-transparent shadow-[0_0_20px_rgba(255,255,255,0.2)]' : (i === 5 ? 'bg-surface-accent border-white/20 text-white animate-pulse' : 'bg-surface border-white/5 text-muted/20')">
+                                        <i data-lucide="check" class="w-5 h-5" x-show="i < 5"></i>
+                                        <span class="text-[10px] font-bold uppercase tracking-tighter" x-show="i >= 5" x-text="day.charAt(0)"></span>
+                                    </div>
+                                    <span class="text-[9px] font-bold text-muted tracking-widest" x-text="day"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Radar Graph -->
+                    <div class="glass p-12 rounded-[3.5rem] relative overflow-hidden">
+                        <header class="mb-14">
+                            <h3 class="font-serif text-4xl italic text-white leading-none">Prism Matrix</h3>
+                            <p class="text-[10px] text-muted uppercase tracking-widest mt-2">Personal Evolution Progress</p>
+                        </header>
+
+                        <div class="flex flex-col md:flex-row items-center gap-16">
+                            <div class="relative w-72 h-72 flex-shrink-0">
+                                <svg viewBox="0 0 100 100" class="w-full h-full overflow-visible drop-shadow-[0_0_20px_rgba(255,255,255,0.05)]">
+                                    <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+                                    <circle cx="50" cy="50" r="25" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+                                    <g stroke="rgba(255,255,255,0.08)" stroke-width="0.5">
+                                        <line x1="50" y1="50" x2="50" y2="10" />
+                                        <line x1="50" y1="50" x2="88" y2="38" />
+                                        <line x1="50" y1="50" x2="73" y2="82" />
+                                        <line x1="50" y1="50" x2="27" y2="82" />
+                                        <line x1="50" y1="50" x2="12" y2="38" />
+                                    </g>
+                                    <polygon :points="getStatsPath()" fill="rgba(255, 255, 255, 0.08)" stroke="white" stroke-width="1.2" class="transition-all duration-1000" />
+                                </svg>
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white tracking-[0.4em]">WILL</div>
+                                <div class="absolute top-1/3 -right-10 text-[10px] font-bold text-muted tracking-[0.4em]">FOCUS</div>
+                                <div class="absolute bottom-4 -right-6 text-[10px] font-bold text-muted tracking-[0.4em]">GRIT</div>
+                                <div class="absolute bottom-4 -left-6 text-[10px] font-bold text-muted tracking-[0.4em]">ADAPT</div>
+                                <div class="absolute top-1/3 -left-10 text-[10px] font-bold text-muted tracking-[0.4em]">LORE</div>
+                            </div>
+
+                            <div class="flex-1 space-y-10 w-full">
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-end">
+                                        <span class="text-[10px] font-bold text-muted uppercase tracking-widest">Mental Fortitude</span>
+                                        <span class="text-xs font-bold text-white">92%</span>
+                                    </div>
+                                    <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div class="h-full bg-white w-[92%] shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
+                                    </div>
+                                </div>
+                                <div class="space-y-4">
+                                    <div class="flex justify-between items-end">
+                                        <span class="text-[10px] font-bold text-muted uppercase tracking-widest">Physical Prowess</span>
+                                        <span class="text-xs font-bold text-white">74%</span>
+                                    </div>
+                                    <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                                        <div class="h-full bg-white w-[74%]"></div>
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-muted italic leading-relaxed pt-8 border-t border-white/5 uppercase tracking-widest">
+                                    Seeker, your 'Lore' is lagging behind. Consider Knowledge-based trials.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- PROOF MODAL -->
+    <div x-show="modalOpen" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center p-6">
+        <div class="absolute inset-0 bg-base/98 backdrop-blur-2xl" @click="modalOpen = false"></div>
+        <div class="bg-surface w-full max-w-xl rounded-[3.5rem] relative border border-white/10 shadow-2xl p-14 md:p-20" x-transition:enter="transition ease-out duration-400 transform" x-transition:enter-start="scale-95 translate-y-10" x-transition:enter-end="scale-100 translate-y-0">
+            <h2 class="font-serif text-6xl italic mb-8 text-white leading-none tracking-tighter">Manifest Proof.</h2>
+            <p class="text-muted text-lg italic mb-14 leading-relaxed">The collective awaits your documentation. Ensure your Seeker Code is visible in the physical evidence.</p>
+            <form class="space-y-12" @submit.prevent="submitProof()">
+                <div class="group border-2 border-dashed border-white/10 rounded-[3rem] py-24 flex flex-col items-center justify-center hover:bg-white/5 hover:border-white/20 transition-all duration-500 cursor-pointer">
+                    <i data-lucide="upload-cloud" class="w-12 h-12 text-muted mb-6 group-hover:text-white transition-all duration-500"></i>
+                    <p class="text-[10px] font-bold text-muted uppercase tracking-[0.4em] group-hover:text-white transition-all duration-500">Deposit Artifact</p>
+                </div>
+                <button type="submit" class="w-full bg-white text-black text-xs font-bold py-5 rounded-2xl shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-[0.4em]">Transmit Entry</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- GLOBAL NOTIFICATION -->
+    <div x-show="notification" x-cloak class="fixed bottom-12 right-12 glass px-10 py-6 rounded-[2rem] flex items-center gap-6 z-[300] cinematic-shadow" x-transition>
+        <div class="w-12 h-12 rounded-2xl bg-white text-black flex items-center justify-center shadow-xl"><i data-lucide="zap" class="w-6 h-6"></i></div>
+        <div>
+            <p class="text-xs font-bold text-white uppercase tracking-[0.2em] mb-1" x-text="notifMessage"></p>
+            <p class="text-[10px] text-muted italic uppercase tracking-widest">Protocol Recorded.</p>
+        </div>
+    </div>
+
+    <script>
+        function sideQuest() {
+            return {
+                view: 'dashboard',
+                modalOpen: false,
+                notification: false,
+                notifMessage: 'Path Committed',
+                activeQuest: null,
+                timerSeconds: 604800, // 7 days in seconds
+                timerDisplay: '07d 00h 00m 00s',
+                swipeX: 0,
+                isDragging: false,
+                startX: 0,
+                
+                weeklyOptions: [
+                    { id: 1, title: 'Cold Satori', category: 'Physical Mastery', difficulty: 'Vanguard', img: 'https://images.unsplash.com/photo-1517030330234-94c4fa948ebc?auto=format&fit=crop&q=80&w=800', desc: 'Silence the panic response. Master the initial shock of frozen immersion.', requirement: 'Complete a 4-minute cold immersion daily. Photo of the timer required.' },
+                    { id: 2, title: 'Scriptorium', category: 'Mental Fortitude', difficulty: 'Seeker', img: 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?auto=format&fit=crop&q=80&w=800', desc: '4 hours of uninterrupted deep work. Reclaim the absolute fortress of focus.', requirement: 'One 4-hour focus session per day. Screenshot of focus timer required.' },
+                    { id: 3, title: 'Midnight Map', category: 'Urban Spirit', difficulty: 'Rogue', img: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800', desc: 'Explore the architectural silence in the quiet hours. Mapping required.', requirement: '10km urban traverse after midnight. GPS map and entry photo required.' }
+                ],
+
+                verifyQueue: [
+                    { id: 101, user: 'Kael_Rift', quest: 'Cold Satori', image: 'https://images.unsplash.com/photo-1457410129867-5999af49daf7?auto=format&fit=crop&q=80&w=400', desc: 'Final minute of the plunge. Controlled breathing established.', time: '12m ago' },
+                    { id: 102, user: 'Sera_V', quest: 'Scriptorium', image: 'https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?auto=format&fit=crop&q=80&w=400', desc: '3.5 hours into the deep work session. Signal is strong.', time: '45m ago' }
+                ],
+
+                stats: { will: 92, focus: 88, grit: 74, adapt: 80, lore: 60 },
+
+                lockQuest(q) {
+                    this.activeQuest = q;
+                    this.notifMessage = 'Path Committed';
+                    this.notification = true;
+                    this.startTimer();
+                    setTimeout(() => this.notification = false, 3000);
+                },
+
+                submitProof() {
+                    this.modalOpen = false;
+                    this.notifMessage = 'Artifact Deposited';
+                    this.notification = true;
+                    setTimeout(() => {
+                        this.notification = false;
+                        this.view = 'profile'; 
+                    }, 3000);
+                },
+
+                startTimer() {
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.timerInterval = setInterval(() => {
+                        if (this.timerSeconds > 0) {
+                            this.timerSeconds--;
+                            const d = Math.floor(this.timerSeconds / 86400);
+                            const h = Math.floor((this.timerSeconds % 86400) / 3600);
+                            const m = Math.floor((this.timerSeconds % 3600) / 60);
+                            const s = this.timerSeconds % 60;
+                            this.timerDisplay = `${d.toString().padStart(2, '0')}d ${h.toString().padStart(2, '0')}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+                        }
+                    }, 1000);
+                },
+
+                getStatsPath() {
+                    const center = 50, radius = 40;
+                    const pts = [this.stats.will, this.stats.focus, this.stats.grit, this.stats.adapt, this.stats.lore];
+                    return pts.map((v, i) => {
+                        const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+                        const r = (v / 100) * radius;
+                        return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`;
+                    }).join(' ');
+                },
+
+                handleStart(e) {
+                    this.isDragging = true;
+                    this.startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+                },
+                handleMove(e) {
+                    if (!this.isDragging) return;
+                    this.swipeX = (e.type.includes('touch') ? e.touches[0].clientX : e.clientX) - this.startX;
+                },
+                handleEnd() {
+                    if (!this.isDragging) return;
+                    this.isDragging = false;
+                    if (Math.abs(this.swipeX) > 120) this.resolveSwipe();
+                    else this.swipeX = 0;
+                },
+                resolveSwipe() {
+                    const dir = this.swipeX > 0 ? 800 : -800;
+                    this.swipeX = dir;
+                    setTimeout(() => {
+                        this.verifyQueue.shift();
+                        this.swipeX = 0;
+                        this.notifMessage = 'Judgment Logged';
+                        this.notification = true;
+                        setTimeout(() => this.notification = false, 3000);
+                    }, 350);
+                },
+
+                init() {
+                    lucide.createIcons();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
