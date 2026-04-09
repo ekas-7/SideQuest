@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -33,6 +34,7 @@ import {
   getVoteResultText,
 } from "@/lib/dashboard-utils";
 import {
+  buildOnboardingSessionKey,
   buildOnboardingStorageKey,
   generateQuestSuggestions,
   isOnboardingInterest,
@@ -121,6 +123,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
   const [suggestedSideQuests, setSuggestedSideQuests] = useState<
     SuggestedSideQuest[]
   >([]);
+  const [onboardingSessionComplete, setOnboardingSessionComplete] = useState(false);
 
   const defaultUsername = useMemo(() => {
     const candidate =
@@ -197,6 +200,8 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
 
       if (uniqueInterests.length === 0) {
         window.localStorage.removeItem(buildOnboardingStorageKey(clerkUser.id));
+        window.sessionStorage.removeItem(buildOnboardingSessionKey(clerkUser.id));
+        setOnboardingSessionComplete(false);
         return;
       }
 
@@ -204,6 +209,8 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
         buildOnboardingStorageKey(clerkUser.id),
         JSON.stringify(uniqueInterests)
       );
+      window.sessionStorage.setItem(buildOnboardingSessionKey(clerkUser.id), "1");
+      setOnboardingSessionComplete(true);
     },
     [clerkUser?.id]
   );
@@ -296,6 +303,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     if (!currentClerkUserId) {
       setOnboardingInterests([]);
       setSuggestedSideQuests([]);
+      setOnboardingSessionComplete(false);
     }
   }, [clerkUser?.id, isLoaded, isSignedIn]);
 
@@ -420,6 +428,17 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
 
     hydrateOnboardingState();
   }, [clerkUser?.id, hydrateOnboardingState, isLoaded, isSignedIn]);
+
+  useLayoutEffect(() => {
+    if (!clerkUser?.id) {
+      setOnboardingSessionComplete(false);
+      return;
+    }
+
+    setOnboardingSessionComplete(
+      window.sessionStorage.getItem(buildOnboardingSessionKey(clerkUser.id)) === "1"
+    );
+  }, [clerkUser?.id]);
 
   useEffect(() => {
     if (!backendUser?.id) {
@@ -598,7 +617,7 @@ export function SideQuestProvider({ children }: { children: ReactNode }) {
     handleVote,
     onboardingInterests,
     suggestedSideQuests,
-    isOnboardingComplete: onboardingInterests.length > 0,
+    isOnboardingComplete: onboardingSessionComplete,
     saveOnboardingInterests,
   };
 

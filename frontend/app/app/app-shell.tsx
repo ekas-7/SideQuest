@@ -11,6 +11,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isImmersiveHome = pathname === "/app" || pathname === "/app/";
+  const isOnboardingRoute = pathname.startsWith("/app/onboarding");
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !backendUser) {
@@ -18,7 +19,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     const inOnboarding = pathname.startsWith("/app/onboarding");
-
     if (!isOnboardingComplete && !inOnboarding) {
       router.replace("/app/onboarding");
       return;
@@ -37,7 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isImmersiveHome) {
+  if (isImmersiveHome || isOnboardingRoute) {
     return <>{children}</>;
   }
 
