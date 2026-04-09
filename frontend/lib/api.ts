@@ -1,13 +1,3 @@
-export type QuestStatFocus = "strength" | "agility" | "intelligence";
-
-export type WeeklyQuestStatus =
-	| "assigned"
-	| "submitted"
-	| "verified"
-	| "rejected";
-
-export type VerificationJobStatus = "pending" | "approved" | "rejected";
-
 export type BackendUser = {
 	id: string;
 	username: string;
@@ -19,70 +9,6 @@ export type BackendUser = {
 	intelligence: number;
 	createdAt: string;
 };
-
-export type QuestCatalogItem = {
-	id: number;
-	title: string;
-	description: string;
-	toughness: number;
-	statFocus: QuestStatFocus;
-};
-
-export type WeeklyQuest = {
-	id: number;
-	userId: string;
-	weekStart: string;
-	slot: number;
-	status: WeeklyQuestStatus;
-	proofDescription: string | null;
-	proofUrl: string | null;
-	submittedAt: string | null;
-	verifiedAt: string | null;
-	createdAt: string;
-	quest: QuestCatalogItem;
-};
-
-export type WeeklyQuestsResponse = {
-	userId: string;
-	weekStart: string;
-	quests: WeeklyQuest[];
-	rerollsUsed?: number;
-	rerollsRemaining?: number;
-};
-
-export type VerificationAssignment = {
-	jobId: number;
-	requiredVotes: number;
-	jobStatus: VerificationJobStatus;
-	vote: boolean | null;
-	submitterUsername: string;
-	submittedAt: string | null;
-	questTitle: string;
-	proofDescription: string | null;
-	proofUrl: string | null;
-};
-
-export type SubmitProofResponse = {
-	verificationJobId: number;
-	assignedVoters: number;
-	requiredVotes: number;
-};
-
-export type CastVoteResponse =
-	| {
-			status: "pending";
-			votesCollected: number;
-			votesRequired: number;
-			approvals: number;
-			rejections: number;
-		}
-	| {
-			status: "approved" | "rejected";
-			approvals: number;
-			rejections: number;
-			votesCollected?: number;
-			votesRequired?: number;
-		};
 
 type RequestOptions = {
 	method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -203,117 +129,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 	return unwrapData<T>(payload);
 }
 
-export function getReadableApiError(error: unknown): string {
-	if (error instanceof ApiClientError) {
-		return error.message;
-	}
-
-	if (error instanceof Error) {
-		return error.message;
-	}
-
-	return "Something went wrong. Please try again.";
-}
-
 export function createUser(
 	payload: { username: string },
 	clerkUserId: string
 ): Promise<{ user: BackendUser }> {
 	return request<{ user: BackendUser }>("/api/users", {
-		method: "POST",
-		body: payload,
-		clerkUserId,
-	});
-}
-
-export function getCurrentUser(clerkUserId: string): Promise<{ user: BackendUser }> {
-	return request<{ user: BackendUser }>("/api/users/me", {
-		method: "GET",
-		clerkUserId,
-	});
-}
-
-export function getQuestCatalog(
-	clerkUserId: string
-): Promise<{ catalog: QuestCatalogItem[] }> {
-	return request<{ catalog: QuestCatalogItem[] }>("/api/quests/catalog", {
-		method: "GET",
-		clerkUserId,
-	});
-}
-
-export function getWeeklyQuests(
-	userId: string,
-	date: string,
-	clerkUserId: string
-): Promise<WeeklyQuestsResponse> {
-	const query = new URLSearchParams({ date });
-	return request<WeeklyQuestsResponse>(`/api/quests/weekly/${userId}?${query.toString()}`, {
-		method: "GET",
-		clerkUserId,
-	});
-}
-
-export function rerollWeeklyQuests(
-	userId: string,
-	date: string,
-	clerkUserId: string
-): Promise<WeeklyQuestsResponse> {
-	const query = new URLSearchParams({ date });
-	return request<WeeklyQuestsResponse>(
-		`/api/quests/weekly/${userId}/reroll?${query.toString()}`,
-		{
-			method: "POST",
-			clerkUserId,
-		}
-	);
-}
-
-export function uploadProofPhoto(
-	file: File,
-	clerkUserId: string
-): Promise<{ url: string }> {
-	const formData = new FormData();
-	formData.set("file", file);
-
-	return request<{ url: string }>("/api/uploads/proof-photo", {
-		method: "POST",
-		body: formData,
-		clerkUserId,
-	});
-}
-
-export function submitWeeklyQuestProof(
-	weeklyQuestId: number,
-	payload: { userId: string; description: string; proofUrl: string },
-	clerkUserId: string
-): Promise<SubmitProofResponse> {
-	return request<SubmitProofResponse>(`/api/quests/weekly/${weeklyQuestId}/proof`, {
-		method: "POST",
-		body: payload,
-		clerkUserId,
-	});
-}
-
-export function getVerificationAssignments(
-	voterUserId: string,
-	clerkUserId: string
-): Promise<{ assignments: VerificationAssignment[] }> {
-	return request<{ assignments: VerificationAssignment[] }>(
-		`/api/verification/assignments/${voterUserId}`,
-		{
-			method: "GET",
-			clerkUserId,
-		}
-	);
-}
-
-export function castVerificationVote(
-	jobId: number,
-	payload: { voterUserId: string; vote: boolean },
-	clerkUserId: string
-): Promise<CastVoteResponse> {
-	return request<CastVoteResponse>(`/api/verification/jobs/${jobId}/vote`, {
 		method: "POST",
 		body: payload,
 		clerkUserId,

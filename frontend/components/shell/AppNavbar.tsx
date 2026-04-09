@@ -6,10 +6,7 @@ import { SignInButton, SignOutButton, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const links = [
-  { href: "/app", label: "Home" },
-  { href: "/app/verify", label: "Verify" },
-] as const;
+const links = [{ href: "/app", label: "Home" }] as const;
 
 export function AppNavbar({
   isSignedIn,
@@ -52,7 +49,6 @@ export function AppNavbar({
         </div>
 
         <div className="flex items-center gap-2">
-
           {isSignedIn ? (
             <>
               <SignOutButton>
