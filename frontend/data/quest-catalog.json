@@ -1,0 +1,212 @@
+[
+  {
+    "title": "Cold Satori",
+    "description": "Silence the panic response. Master the initial shock of frozen immersion through deliberate breathing and mental control.",
+    "toughness": 7,
+    "statFocus": "strength",
+    "categories": ["Fitness", "Wellness", "Mindfulness"]
+  },
+  {
+    "title": "Iron Dawn",
+    "description": "Rise before the sun and complete a full-body resistance session. Prove your commitment before the world wakes up.",
+    "toughness": 5,
+    "statFocus": "strength",
+    "categories": ["Fitness"]
+  },
+  {
+    "title": "The Carry",
+    "description": "Perform a loaded carry challenge — farmer's walk, sandbag, or any heavy object — for distance and time.",
+    "toughness": 6,
+    "statFocus": "strength",
+    "categories": ["Fitness", "Adventure"]
+  },
+  {
+    "title": "Spartan 300",
+    "description": "Complete 300 reps of any bodyweight movement without stopping. No equipment required. Only will.",
+    "toughness": 8,
+    "statFocus": "strength",
+    "categories": ["Fitness"]
+  },
+  {
+    "title": "The Plunge",
+    "description": "Submerge in cold water for at least 3 minutes. No hesitation. No early exit. Document the timer.",
+    "toughness": 9,
+    "statFocus": "strength",
+    "categories": ["Fitness", "Wellness", "Adventure"]
+  },
+  {
+    "title": "Brick Foundation",
+    "description": "Complete a 5km run immediately followed by 20 minutes of strength work. Back-to-back, no rest between.",
+    "toughness": 7,
+    "statFocus": "strength",
+    "categories": ["Fitness"]
+  },
+  {
+    "title": "Stone Grip",
+    "description": "Hang from a bar for a total of 5 accumulated minutes throughout the day. Log each set.",
+    "toughness": 4,
+    "statFocus": "strength",
+    "categories": ["Fitness", "Wellness"]
+  },
+  {
+    "title": "Midnight Map",
+    "description": "Navigate 10km on foot after midnight. Urban or trail. GPS map and a photo of the route required.",
+    "toughness": 8,
+    "statFocus": "agility",
+    "categories": ["Adventure", "Fitness"]
+  },
+  {
+    "title": "The Traverse",
+    "description": "Complete a continuous 20km walk or hike in a single session. No vehicle assistance. Elevation bonus if applicable.",
+    "toughness": 7,
+    "statFocus": "agility",
+    "categories": ["Adventure", "Fitness"]
+  },
+  {
+    "title": "Rooftop Protocol",
+    "description": "Find the highest accessible point in your city and document your view from the top. Creative routes encouraged.",
+    "toughness": 5,
+    "statFocus": "agility",
+    "categories": ["Adventure", "Social"]
+  },
+  {
+    "title": "Mobility Unlock",
+    "description": "Complete a 45-minute mobility and flexibility session. Document at least 3 key stretches with hold times.",
+    "toughness": 3,
+    "statFocus": "agility",
+    "categories": ["Wellness", "Fitness", "Mindfulness"]
+  },
+  {
+    "title": "Sprint Intervals",
+    "description": "Complete 10 x 100m all-out sprints with 90-second rest between each. Timing required.",
+    "toughness": 6,
+    "statFocus": "agility",
+    "categories": ["Fitness"]
+  },
+  {
+    "title": "The Unseen Path",
+    "description": "Go somewhere you've never been before within your city or region. No destination planning allowed — navigate by feel.",
+    "toughness": 4,
+    "statFocus": "agility",
+    "categories": ["Adventure", "Social", "Mindfulness"]
+  },
+  {
+    "title": "Vertical Mile",
+    "description": "Accumulate 1 mile (1.6km) of vertical elevation gain in a single day — stairs, hills, or climbing.",
+    "toughness": 8,
+    "statFocus": "agility",
+    "categories": ["Fitness", "Adventure"]
+  },
+  {
+    "title": "Scriptorium",
+    "description": "Complete a 4-hour uninterrupted deep work session on a single meaningful task. No context switching allowed.",
+    "toughness": 7,
+    "statFocus": "intelligence",
+    "categories": ["Learning", "Career"]
+  },
+  {
+    "title": "The Codex",
+    "description": "Read a full non-fiction book in one sitting or across 3 days maximum. Write a 300-word synthesis of what you learned.",
+    "toughness": 5,
+    "statFocus": "intelligence",
+    "categories": ["Learning"]
+  },
+  {
+    "title": "Teach to Learn",
+    "description": "Identify something you know well and teach it to another person — in person, online, or through written material.",
+    "toughness": 6,
+    "statFocus": "intelligence",
+    "categories": ["Learning", "Social", "Career"]
+  },
+  {
+    "title": "The Audit",
+    "description": "Conduct a full financial audit of the past 30 days. Categorise every transaction and identify two areas to optimise.",
+    "toughness": 4,
+    "statFocus": "intelligence",
+    "categories": ["Finance", "Career"]
+  },
+  {
+    "title": "Skill Sprint",
+    "description": "Dedicate 7 consecutive days to learning one new skill — one focused hour per day. Document each session.",
+    "toughness": 8,
+    "statFocus": "intelligence",
+    "categories": ["Learning", "Career"]
+  },
+  {
+    "title": "Build Something",
+    "description": "Create something tangible that didn't exist before — a tool, a piece of code, an essay, or a physical object.",
+    "toughness": 7,
+    "statFocus": "intelligence",
+    "categories": ["Creativity", "Career", "Learning"]
+  },
+  {
+    "title": "The Interrogation",
+    "description": "Interview someone 10+ years further along in a path you care about. Extract at least 5 actionable lessons.",
+    "toughness": 6,
+    "statFocus": "intelligence",
+    "categories": ["Career", "Social", "Learning"]
+  },
+  {
+    "title": "Portfolio Protocol",
+    "description": "Research and document a complete investment thesis for one asset class. Write it as if presenting to a panel.",
+    "toughness": 7,
+    "statFocus": "intelligence",
+    "categories": ["Finance", "Learning"]
+  },
+  {
+    "title": "The Blank Canvas",
+    "description": "Create a piece of original art — drawing, painting, digital, or sculpture — in one uninterrupted session.",
+    "toughness": 4,
+    "statFocus": "intelligence",
+    "categories": ["Creativity"]
+  },
+  {
+    "title": "Signal from Noise",
+    "description": "Spend 24 hours without social media or news. Document what you noticed, felt, and created in the absence of noise.",
+    "toughness": 5,
+    "statFocus": "intelligence",
+    "categories": ["Mindfulness", "Wellness", "Learning"]
+  },
+  {
+    "title": "The Dialogue",
+    "description": "Have a meaningful, screen-free conversation lasting over 1 hour with someone you rarely speak deeply with.",
+    "toughness": 3,
+    "statFocus": "agility",
+    "categories": ["Social", "Mindfulness"]
+  },
+  {
+    "title": "30 Rejections",
+    "description": "Put yourself in 5 situations this week where you might be told no — ask, pitch, or initiate something uncomfortable.",
+    "toughness": 9,
+    "statFocus": "intelligence",
+    "categories": ["Career", "Social"]
+  },
+  {
+    "title": "Dawn Ritual",
+    "description": "Complete a structured morning routine every day for 7 days: wake by 6am, move, journal, and no phone for 1 hour.",
+    "toughness": 6,
+    "statFocus": "strength",
+    "categories": ["Wellness", "Mindfulness", "Fitness"]
+  },
+  {
+    "title": "The Detox",
+    "description": "Cut out one substance or habit that you rely on daily — caffeine, alcohol, sugar — for a full 7 days.",
+    "toughness": 8,
+    "statFocus": "strength",
+    "categories": ["Wellness", "Mindfulness"]
+  },
+  {
+    "title": "Breath Mastery",
+    "description": "Complete a breathwork session each day for 5 days. Document heart rate, focus, and mood before and after each session.",
+    "toughness": 4,
+    "statFocus": "agility",
+    "categories": ["Mindfulness", "Wellness"]
+  },
+  {
+    "title": "The Pitch",
+    "description": "Identify an idea you believe in and pitch it — to a friend, an employer, an investor, or the internet.",
+    "toughness": 7,
+    "statFocus": "intelligence",
+    "categories": ["Career", "Social"]
+  }
+]
